@@ -84,7 +84,7 @@ class AuthTest(DashboardTestCase):
     def test_login_invalid(self):
         # test with Authorization header
         self._post("/api/auth", {'username': 'admin', 'password': 'inval'})
-        self.assertStatus(400)
+        self.assertStatus(401)
         self.assertJsonBody({
             "component": "auth",
             "code": "invalid_credentials",
@@ -97,7 +97,7 @@ class AuthTest(DashboardTestCase):
         for _ in range(3):
             self._post("/api/auth", {'username': 'admin', 'password': 'inval'})
         self._post("/api/auth", {'username': 'admin', 'password': 'admin'})
-        self.assertStatus(400)
+        self.assertStatus(401)
         self.assertJsonBody({
             "component": "auth",
             "code": "invalid_credentials",
@@ -122,7 +122,7 @@ class AuthTest(DashboardTestCase):
         for _ in range(3):
             self._post("/api/auth", {'username': 'admin', 'password': 'inval'}, set_cookies=True)
         self._post("/api/auth", {'username': 'admin', 'password': 'admin'}, set_cookies=True)
-        self.assertStatus(400)
+        self.assertStatus(401)
         self.assertJsonBody({
             "component": "auth",
             "code": "invalid_credentials",
