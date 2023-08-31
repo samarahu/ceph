@@ -7,9 +7,6 @@
 #include "rgw_common.h"
 #include "rgw_cache_driver.h"
 
-#define dout_subsys ceph_subsys_rgw
-#define dout_context g_ceph_context
-
 namespace rgw { namespace cache { 
 
 namespace net = boost::asio;

@@ -283,6 +283,7 @@ int LFUDAPolicy::get_block(const DoutPrefixProvider* dpp, CacheBlock* block, rgw
     while (freeSpace < block->size) /* Not enough space in local cache */
       freeSpace += eviction(dpp, cacheNode, y);
 
+
     if (exist_key(key, y)) { /* Remote copy */
       try {
 	boost::system::error_code ec;
