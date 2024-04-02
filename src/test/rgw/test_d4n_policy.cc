@@ -72,7 +72,6 @@ class LFUDAPolicyFixture : public ::testing::Test {
       ASSERT_NE(policyDriver, nullptr);
       ASSERT_NE(conn, nullptr);
 
-      dir->init(env->cct);
       env->cct->_conf->rgw_local_cache_address = "127.0.0.1:6379";
       cacheDriver->initialize(env->dpp);
 
@@ -131,7 +130,7 @@ class LFUDAPolicyFixture : public ::testing::Test {
 	    }
 	  }
 	} else if (!exists) { /* No remote copy */
-	  block->hostsList.push_back(dir->cct->_conf->rgw_local_cache_address);
+	  block->hostsList.push_back(env->dpp->get_cct()->_conf->rgw_local_cache_address);
 	  if (dir->set(env->dpp, block, y) < 0)
 	    return -1;
 
