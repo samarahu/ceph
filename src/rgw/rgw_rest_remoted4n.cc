@@ -287,7 +287,11 @@ void RGWOp_RemoteD4N_Put::execute(optional_yield y) {
       return;
     }
   }
-  oid_in_cache = bucketName + "_" + version + "_" + objectName + "_" + to_string(offset) + "_" + to_string(len);
+  if (version.length() > 0)
+    oid_in_cache = bucketName + "_" + version + "_" + objectName + "_" + to_string(offset) + "_" + to_string(len);
+  else 
+    oid_in_cache = bucketName + "_" + objectName + "_" + to_string(offset) + "_" + to_string(len);
+
   if (dirty)
     //D_bucket_version_key_...
     key = string("D_") + oid_in_cache;
@@ -325,26 +329,9 @@ void RGWOp_RemoteD4N_Put::execute(optional_yield y) {
 
   //FIXME: AMIN: this is only for test, change it
   rgw_user user;
-  user.tenant = "RGW";
-  /*
-  RGWAccessKey accessKey;
-  std::unique_ptr<rgw::sal::User> c_user = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_user(s->object->get_bucket()->get_owner());
-  int ret = c_user->load_user(s, y);
-  if (ret < 0) {
-    op_ret = -1;
-    return;
-  }
-  if (c_user->get_info().access_keys.empty()) {
-    op_ret = -1;
-    return;
-  }
-  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
-  
-  rgw_user user = c_user->get_id();
-  
-  accessKey.id = c_user->get_info().access_keys.begin()->second.id;
-  accessKey.key = c_user->get_info().access_keys.begin()->second.key;
-  */
+  user.tenant = "AMIN_TEST";
+  static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime, user, y);
+  //op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  s->object->get_bucket()->get_owner(), y);
 
   ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
   static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  user, y);
