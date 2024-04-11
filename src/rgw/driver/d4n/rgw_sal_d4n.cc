@@ -74,7 +74,7 @@ int D4NFilterDriver::initialize(CephContext *cct, const DoutPrefixProvider *dpp)
   namespace net = boost::asio;
   using boost::redis::config;
 
-  std::string address = cct->_conf->rgw_local_cache_address;
+  std::string address = "127.0.0.1:6379"; // update -Sam
   config cfg;
   cfg.addr.host = address.substr(0, address.find(":"));
   cfg.addr.port = address.substr(address.find(":") + 1, address.length());
