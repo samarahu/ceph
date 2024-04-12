@@ -73,6 +73,7 @@ class LFUDAPolicyFixture : public ::testing::Test {
       ASSERT_NE(conn, nullptr);
 
       dir->init(env->cct);
+      env->cct->_conf->rgw_local_cache_address = "127.0.0.1:6379";
       cacheDriver->initialize(env->dpp);
 
       bl.append("test data");
@@ -250,7 +251,7 @@ TEST_F(LFUDAPolicyFixture, RemoteGetBlockYield)
     conn->cancel();
   });
 
-  io.run();
+  io.run(); 
 }
 
 TEST_F(LFUDAPolicyFixture, BackendGetBlockYield)
