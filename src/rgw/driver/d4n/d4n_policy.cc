@@ -118,8 +118,7 @@ int LFUDAPolicy::init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_
   return result;
 }
 
-
-int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int *minAvgWeight, std::string *cache_address, optional_yield y) {
+int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int& minAvgWeight, std::string& cache_address, optional_yield y) {
   response<std::string, std::string, std::string> resp;
 
   try { 
@@ -449,10 +448,9 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
       return -ENOENT;
     }
 
-    //int avgWeight = weightSum / entries_map.size();
-    int avgWeight;
+    int minAvgWeight = 0;
     std::string remoteCacheAddress;
-    if (getMinAvgWeight(dpp, &avgWeight, &remoteCacheAddress, y) < 0){
+    if (getMinAvgWeight(dpp, minAvgWeight, remoteCacheAddress, y) < 0){
       ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): Could not retrieve min average weight." << dendl;
       delete victim;
       return -ENOENT;
@@ -478,9 +476,8 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
         }
       }
 
-      if (it->second->localWeight > avgWeight) {
+      if (it->second->localWeight > minAvgWeight) {
 	// TODO: push victim block to remote cache
-	// add remote cache host to host list
 	bufferlist out_bl;
         rgw::sal::Attrs obj_attrs;
 
@@ -531,7 +528,7 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 
     ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): Block " << key << " has been evicted." << dendl;
 
-    weightSum = (avgWeight * entries_map.size()) - it->second->localWeight;
+    weightSum = (minAvgWeight * entries_map.size()) - it->second->localWeight;
 
     age = std::max(it->second->localWeight, age);
 

@@ -89,7 +89,5 @@ public:
   RGWHandler_REST* get_handler(rgw::sal::Driver* driver,
 			       req_state* const s,
                                const rgw::auth::StrategyRegistry& auth_registry,
-                               const std::string& frontend_prefix) override {
-    return new RGWHandler_RemoteD4N(auth_registry);
-  }
+                               const std::string& frontend_prefix) override;
 };
