@@ -271,6 +271,7 @@ bool D4NFilterObject::get_obj_attrs_from_cache(const DoutPrefixProvider* dpp, op
     RGWQuotaInfo quota_info;
 
     astate.obj = this->get_obj();
+    ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): astate.obj is: " << astate.obj.key.name << dendl;
     std::string instance;
     for (auto& attr : attrs) {
       if (attr.second.length() > 0) {
@@ -450,6 +451,8 @@ int D4NFilterObject::get_obj_attrs(optional_yield y, const DoutPrefixProvider* d
   
     RGWObjState* state = nullptr;
     this->get_obj_state(dpp, &state, y);
+    this->obj = state->obj;
+    ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): this->obj is: " << this->obj.key.name << dendl;
     attrs = this->get_attrs();
     this->set_obj_state_attrs(dpp, y, *state, attrs);
 
