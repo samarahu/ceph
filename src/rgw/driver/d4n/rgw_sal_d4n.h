@@ -103,6 +103,9 @@ class D4NFilterObject : public FilterObject {
     std::string version;
     std::string prefix;
     rgw_obj obj;
+    rgw::sal::Object* dest_object{nullptr}; //for copy-object
+    rgw::sal::Bucket* dest_bucket{nullptr}; //for copy-object
+    std::string dest_version;
   public:
     struct D4NFilterReadOp : FilterReadOp {
       public:
@@ -219,6 +222,8 @@ class D4NFilterObject : public FilterObject {
     int calculate_version(const DoutPrefixProvider* dpp, optional_yield y, RGWObjState& state, std::string& version);
     int set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optional_yield y, bool is_latest_version = true, bool dirty = false);
     bool check_head_exists_in_cache_get_oid(const DoutPrefixProvider* dpp, std::string& head_oid_in_cache, rgw::sal::Attrs& attrs, optional_yield y);
+    rgw::sal::Bucket* get_destination_bucket(const DoutPrefixProvider* dpp) { return dest_bucket;}
+    rgw::sal::Object* get_destination_object(const DoutPrefixProvider* dpp) { return dest_object; }
 };
 
 class D4NFilterWriter : public FilterWriter {
