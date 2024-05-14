@@ -2269,6 +2269,7 @@ int D4NFilterWriter::process(bufferlist&& data, uint64_t offset)
       block.blockID = ofs;
       block.dirty = true;
       block.hostsList.push_back(blockDir->cct->_conf->rgw_local_cache_address);
+      ldpp_dout(save_dpp, 10) << "Local cache address: " << blockDir->cct->_conf->rgw_local_cache_address << dendl;
       dirty = true;
       ret = driver->get_policy_driver()->get_cache_policy()->eviction(save_dpp, block.size, y);
       if (ret == 0) {
