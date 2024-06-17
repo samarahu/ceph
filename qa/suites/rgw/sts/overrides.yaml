@@ -14,6 +14,7 @@ overrides:
         rgw lc debug interval: 10
         rgw sts key: abcdefghijklmnop
         rgw s3 auth use sts: true
+        rgw filter: d4n
   rgw:
     storage classes: LUKEWARM, FROZEN
   s3tests:

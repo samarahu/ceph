@@ -19,3 +19,4 @@ overrides:
         rgw keystone admin user: admin
         rgw keystone admin password: ADMIN
         rgw keystone admin project: admin
+        rgw filter: d4n

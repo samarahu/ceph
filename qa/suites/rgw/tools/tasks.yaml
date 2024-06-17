@@ -17,3 +17,4 @@ overrides:
         debug rgw: 20
         debug ms: 1
         rgw enable static website: false
+        rgw filter: d4n

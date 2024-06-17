@@ -15,5 +15,7 @@ overrides:
       osd:
         osd min pg log entries: 1
         osd max pg log entries: 2
+      client:
+        rgw filter: d4n
   ragweed:
     rgw_server: client.0

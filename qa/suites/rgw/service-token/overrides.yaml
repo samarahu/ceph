@@ -20,3 +20,4 @@ overrides:
         rgw keystone service token enabled: true
         rgw keystone service token accepted roles: admin
         rgw keystone expired token cache expiration: 10
+        rgw filter: d4n
