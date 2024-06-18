@@ -12,5 +12,12 @@ overrides:
     compression type: random
 
 tasks:
+- install:
+    # extra packages added for the rgw-d4ntests task
+    extra_system_packages:
+      deb: ['redis']
+      rpm: ['redis']
+- redis:
+    client.0:
 - rgw:
     client.0:

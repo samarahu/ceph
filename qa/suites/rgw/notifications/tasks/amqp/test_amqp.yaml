@@ -1,5 +1,12 @@
 tasks:
+- install:
+    # extra packages added for the rgw-d4ntests task
+    extra_system_packages:
+      deb: ['redis']
+      rpm: ['redis']
 - rabbitmq:
+    client.0:
+- redis:
     client.0:
 - notification-tests:
     client.0:

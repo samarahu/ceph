@@ -7,6 +7,10 @@ openstack:
     size: 10 # GB
 tasks:
 - install:
+    # extra packages added for the rgw-d4ntests task
+    extra_system_packages:
+      deb: ['redis']
+      rpm: ['redis']
 - ceph:
     conf:
       client:
@@ -15,6 +19,8 @@ tasks:
       osd:
         debug ms: 1
         debug objclass : 20
+- redis:
+    client.0:
 - rgw:
     client.0:
 - radosgw-admin:
