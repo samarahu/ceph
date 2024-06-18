@@ -1,4 +1,11 @@
 tasks:
+- install:
+    # extra packages added for the rgw-d4ntests task
+    extra_system_packages:
+      deb: ['redis']
+      rpm: ['redis']
+- redis:
+    client.0:
 - kafka:
     client.0:
       kafka_version: 2.6.0

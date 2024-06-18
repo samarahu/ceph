@@ -1,4 +1,11 @@
 tasks:
+- install:
+    # extra packages added for the rgw-d4ntests task
+    extra_system_packages:
+      deb: ['redis']
+      rpm: ['redis']
+- redis:
+    client.0:
 - thrashosds:
     timeout: 1200
     chance_pgnum_grow: 1
