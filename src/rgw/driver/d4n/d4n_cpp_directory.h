@@ -39,9 +39,10 @@ struct CacheBlockCpp {
 
 class RGWDirectory{
 public:
-	RGWDirectory() {}
+	RGWDirectory(std::shared_ptr<cpp_redis::client[]>& conn): client_conn(conn) {}
 	virtual ~RGWDirectory(){}
 	CephContext *cct;
+        std::shared_ptr<cpp_redis::client[]> client_conn;
 
 private:
 
@@ -50,15 +51,19 @@ private:
 class RGWObjectDirectory: public RGWDirectory {
 public:
 
-	RGWObjectDirectory() {}
+	RGWObjectDirectory(std::shared_ptr<cpp_redis::client[]>& conn): RGWDirectory(conn) {}
 	void init(CephContext *_cct) {
-		cct = _cct;
+  	  cct = _cct;
+	  connectClient();
 	}
 	virtual ~RGWObjectDirectory() {}
 
-	void findClient(std::string key, cpp_redis::client *client);
+	//void retryFindClient(std::string key, cpp_redis::client *client);
+	void connectClient();
+	int findClient(std::string key);
 	int set(CacheObjectCpp *ptr, optional_yield y);
 	int get(CacheObjectCpp *ptr, optional_yield y);
+        int copy(CacheObjectCpp* object, std::string copyName, std::string copyBucketName, optional_yield y){return 0;} //TODO implement this
 	int del(CacheObjectCpp *ptr, optional_yield y);
 	int update_field(CacheObjectCpp *ptr, std::string field, std::string value, optional_yield y);
 	int get_attr(CacheObjectCpp *ptr, const char* name, bufferlist &dest, optional_yield y);
@@ -72,15 +77,19 @@ private:
 class RGWBlockDirectory: public RGWDirectory {
 public:
 
-	RGWBlockDirectory() {}
+	RGWBlockDirectory(std::shared_ptr<cpp_redis::client[]>& conn): RGWDirectory(conn) {}
 	void init(CephContext *_cct) {
-		cct = _cct;
+	  cct = _cct;
+	  connectClient();
 	}
 	virtual ~RGWBlockDirectory() {}
 
-	void findClient(std::string key, cpp_redis::client *client);
+	//void retryFindClient(std::string key, cpp_redis::client *client);
+	void connectClient();
+	int findClient(std::string key);
 	int set(CacheBlockCpp *ptr, optional_yield y);
 	int get(CacheBlockCpp *ptr, optional_yield y);
+        int copy(CacheBlockCpp* ptr, std::string copyName, std::string copyBucketName, optional_yield y){return 0;} //TODO: implement this
 	int del(CacheBlockCpp *ptr, optional_yield y);
 	int update_field(CacheBlockCpp *ptr, std::string field, std::string value, optional_yield y);
 private:

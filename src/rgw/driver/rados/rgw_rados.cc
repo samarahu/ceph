@@ -1798,7 +1798,7 @@ int RGWRados::Bucket::List::list_objects_ordered(
   //FIXME: AMIN uncomment these lines
   //const int64_t max = // protect against memory issues and negative vals
   //  std::min(bucket_list_objects_absolute_max, std::max(int64_t(0), max_p));
-  const int64_t max = 100;
+  const int64_t max = 10000;
   int read_ahead = std::max(cct->_conf->rgw_list_bucket_min_readahead, max);
 
   result->clear();
@@ -7273,6 +7273,10 @@ int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, 
 
   auto aio = rgw::make_throttle(window_size, y);
   get_obj_data data(store, cb, &*aio, ofs, y);
+
+  if (state.obj.empty()) {
+    state.obj = source->get_obj();
+  }
 
   int r = store->iterate_obj(dpp, source->get_ctx(), source->get_bucket_info(), state.obj,
                              ofs, end, chunk_size, _get_obj_iterate_cb, &data, y);

@@ -58,13 +58,18 @@ public:
 
 class D4NFilterDriver : public FilterDriver {
   private:
-    std::shared_ptr<connection> connOD;
-    std::shared_ptr<connection> connBD;
+    //std::shared_ptr<connection> connOD;
+    //std::shared_ptr<connection> connBD;
     std::shared_ptr<connection> connCP;
+
+    std::shared_ptr<cpp_redis::client[]> conn_cpp_OD;
+    std::shared_ptr<cpp_redis::client[]> conn_cpp_BD;
+    //std::shared_ptr<cpp_redis::client[]> conn_cpp_CP;
+
     rgw::cache::CacheDriver* cacheDriver;
     rgw::cache::CacheDriver* lsvdCacheDriver;
-    rgw::d4n::ObjectDirectory* objDir;
-    rgw::d4n::BlockDirectory* blockDir;
+    //rgw::d4n::ObjectDirectory* objDir;
+    //rgw::d4n::BlockDirectory* blockDir;
     rgw::d4n::RGWBlockDirectory* blockDirCpp;
     rgw::d4n::RGWObjectDirectory* objectDirCpp;
     rgw::d4n::PolicyDriver* policyDriver;
@@ -91,8 +96,8 @@ class D4NFilterDriver : public FilterDriver {
 				  const std::string& unique_tag) override;
     rgw::cache::CacheDriver* get_cache_driver() { return cacheDriver; }
     rgw::cache::CacheDriver* get_lsvd_cache_driver() { return lsvdCacheDriver; }
-    rgw::d4n::ObjectDirectory* get_obj_dir() { return objDir; }
-    rgw::d4n::BlockDirectory* get_block_dir() { return blockDir; }
+    //rgw::d4n::ObjectDirectory* get_obj_dir() { return objDir; }
+    //rgw::d4n::BlockDirectory* get_block_dir() { return blockDir; }
     rgw::d4n::RGWBlockDirectory* get_block_dir_cpp() { return blockDirCpp; }
     rgw::d4n::RGWObjectDirectory* get_obj_dir_cpp() { return objectDirCpp; }
     rgw::d4n::PolicyDriver* get_policy_driver() { return policyDriver; }
@@ -133,6 +138,7 @@ class D4NFilterObject : public FilterObject {
     std::string creationTime;
     bool dirty = false;
     Attrs attrs_d4n;
+    rgw_obj obj;
 
   public:
     struct D4NFilterReadOp : FilterReadOp {
@@ -161,6 +167,7 @@ class D4NFilterObject : public FilterObject {
               this->dpp = dpp;
               this->y = y;
             }
+	    void set_last_part(bool part) { this->last_part = part; }
 	    void set_ofs(uint64_t ofs) { this->ofs = ofs; }
 	    void set_read_ofs(uint64_t ofs) { this->read_ofs = ofs; }
 	    void set_first_block(bool val) { this->first_block = val; }

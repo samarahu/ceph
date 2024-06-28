@@ -2405,7 +2405,7 @@ options:
   long_desc: The number of concurrent RADOS IO operations that will be triggered for
     handling multisite sync operations. This includes control related work, and not
     the actual sync operations.
-  default: 32
+  default: 64
   services:
   - rgw
   with_legacy: true
@@ -3641,7 +3641,7 @@ options:
   type: int
   level: advanced
   desc: specifies the maximum number of worker threads that may be used by libaio
-  default: 20
+  default: 64
   services:
   - rgw
   see_also:

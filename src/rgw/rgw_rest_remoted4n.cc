@@ -345,23 +345,23 @@ void RGWOp_RemoteD4N_Put::execute(optional_yield y) {
   static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  user, y);
   //static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  s->object->get_bucket()->get_owner(), y);
 
-  rgw::d4n::CacheBlock block;
+  rgw::d4n::CacheBlockCpp block;
   block.cacheObj.objName = objectName;
   block.cacheObj.bucketName = bucketName;
   block.blockID = offset;
   block.size = len;
 
-  op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_block_dir()->update_field(&block, "blockHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
+  op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_block_dir_cpp()->update_field(&block, "blockHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
   if (op_ret < 0) {
     ldpp_dout(s, 5) << "ERROR: can't update block directory entry: " << cpp_strerror(op_ret) << dendl;
     return;
   }
 
-  rgw::d4n::CacheObj object;
+  rgw::d4n::CacheObjectCpp object;
   object.objName = objectName;
   object.bucketName = bucketName;
 
-  op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_obj_dir()->update_field(&object, "objHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
+  op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_obj_dir_cpp()->update_field(&object, "objHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
   if (op_ret < 0) {
     ldpp_dout(s, 5) << "ERROR: can't update object directory entry: " << cpp_strerror(op_ret) << dendl;
     return;
