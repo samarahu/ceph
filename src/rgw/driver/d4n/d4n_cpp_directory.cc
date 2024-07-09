@@ -443,21 +443,27 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
 	return -1;
   }*/
 
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key is: " << key << dendl;
+
   int client_index = findClient(key);
   if (client_index < 0){
     ldout(cct,10) << __func__ << ": " << __LINE__ << " Couldn't find the right slot!" << dendl;
     return -1;
   }
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " client_index is: " << client_index << dendl;
   if (!(client_conn[client_index].is_connected())){
     ldout(cct,10) << __func__ << ": " << __LINE__ << " Redis client is not connected!" << dendl;
     return -1;
   }
 
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
   std::string result;
   std::string endpoint;
   std::string local_host = cct->_conf->rgw_local_cache_address;
   int exist = 0;
+  
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " local host is: " << local_host << dendl;
 
   std::vector<std::string> keys;
   keys.push_back(key);
@@ -473,7 +479,9 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
     exist = 0;
   }
 	
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
   if (!exist) {
+    ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key does not exist!" << dendl;
     std::vector<std::pair<std::string, std::string>> list;
 
     list.push_back(std::make_pair("blockID", std::to_string(ptr->blockID)));
@@ -491,9 +499,11 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
       else
         endpoint = endpoint + host + "_";
     }
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
     if (!endpoint.empty())
       endpoint.pop_back();
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
     list.push_back(std::make_pair("blockHosts", endpoint));
 
@@ -501,6 +511,7 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
       if (!reply.is_null())
  	result = reply.as_string();
     });
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
     client_conn[client_index].sync_commit(std::chrono::milliseconds(300));
     if (result.find("OK") != std::string::npos)
@@ -508,6 +519,7 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
     else
       ldout(cct,10) <<__func__<<" else key res  " << result <<dendl;
   } else { 
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
     std::string old_val;
     std::vector<std::string> fields;
     fields.push_back("blockHosts");
@@ -519,27 +531,34 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
 	    old_val = arr[0].as_string();
 	}
       });
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
       client_conn[client_index].sync_commit(std::chrono::milliseconds(300));
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
     }
     catch(std::exception &e) {
       return 0;
     }
   
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
     if (old_val.find(local_host) == std::string::npos){
       std::string hosts = old_val +"_"+ local_host;
       std::vector<std::pair<std::string, std::string>> list;
       list.push_back(std::make_pair("blockHosts", hosts));
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
       client_conn[client_index].hmset(key, list, [&result](cpp_redis::reply &reply){
         if (!reply.is_null())
  	  result = reply.as_string();
         });
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 
       client_conn[client_index].sync_commit(std::chrono::milliseconds(300));
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 	  
       ldout(cct,10) <<__func__<<" after hmset " << key << " updated hostslist: " << old_val <<dendl;
     }
   }
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
   return 0;
 }
 

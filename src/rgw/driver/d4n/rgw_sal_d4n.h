@@ -149,6 +149,7 @@ class D4NFilterObject : public FilterObject {
 	    D4NFilterObject* source;
 	    RGWGetDataCB* client_cb;
 	    uint64_t ofs = 0, len = 0;
+	    uint64_t adjusted_start_ofs = 0;
 	    uint64_t read_ofs = 0;
 	    bool first_block{true};
 	    bufferlist bl_rem;
@@ -169,6 +170,7 @@ class D4NFilterObject : public FilterObject {
             }
 	    void set_last_part(bool part) { this->last_part = part; }
 	    void set_ofs(uint64_t ofs) { this->ofs = ofs; }
+      	    void set_adjusted_start_ofs(uint64_t adjusted_start_ofs) { this->adjusted_start_ofs = adjusted_start_ofs; }
 	    void set_read_ofs(uint64_t ofs) { this->read_ofs = ofs; }
 	    void set_first_block(bool val) { this->first_block = val; }
 	    int flush_last_part();
@@ -201,10 +203,12 @@ class D4NFilterObject : public FilterObject {
 	RGWGetDataCB* client_cb;
 	std::unique_ptr<D4NFilterGetCB> cb;
         std::unique_ptr<rgw::Aio> aio;
-	uint64_t offset = 0; // next offset to write to client
+	int64_t offset = 0; // next offset to write to client
         rgw::AioResultList completed; // completed read results, sorted by offset
         std::unordered_map<uint64_t, std::pair<uint64_t,uint64_t>> blocks_info;
 
+        bool last_part_done = false;
+	int64_t last_adjusted_ofs = -1; 
 	uint64_t read_ofs = 0; // offset to read in the first block
 	bool first_block = true; //is it first_block
 	void set_read_ofs(uint64_t ofs) {read_ofs = ofs;}
@@ -280,6 +284,14 @@ class D4NFilterObject : public FilterObject {
 
     void set_object_attrs(Attrs attrs) { this->attrs_d4n = attrs; }
     Attrs get_object_attrs() { return this->attrs_d4n; }
+
+    int get_obj_attrs_from_cache(const DoutPrefixProvider* dpp, optional_yield y);
+    void set_obj_state_attrs(const DoutPrefixProvider* dpp, optional_yield y, RGWObjState& state, rgw::sal::Attrs& attrs);
+    int calculate_version(const DoutPrefixProvider* dpp, optional_yield y, RGWObjState& state, std::string& version);
+    int set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optional_yield y, bool is_latest_version = true, bool dirty = false);
+    bool check_head_exists_in_cache_get_oid(const DoutPrefixProvider* dpp, std::string& head_oid_in_cache, rgw::sal::Attrs& attrs, rgw::d4n::CacheBlockCpp& blk, optional_yield y);
+
+
 };
 
 class D4NFilterWriter : public FilterWriter {

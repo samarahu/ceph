@@ -28,6 +28,8 @@ struct CacheBlockCpp {
   CacheObjectCpp cacheObj;
   uint64_t blockID;
   std::string version;
+  bool deleteMarker{false};
+  std::optional<std::pair<std::string, bool>> prevVersion; /* Format is <version, deleteMarker> */
   bool dirty;
   uint64_t size; /* Block size in bytes */
   bool in_lsvd = false; /* is it in LSVD cache? */
