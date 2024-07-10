@@ -1448,6 +1448,9 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
   this->offset = adjusted_start_ofs;
 
   bool dirty = source->get_object_dirty();
+    
+  if (start_part_num == 0)
+    this->set_first_block(true);
 
   do {
     int ret = 0;
@@ -1488,8 +1491,6 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
     this->blocks_info.insert(std::make_pair(id, std::make_pair(adjusted_start_ofs, part_len)));
 
     this->set_read_ofs(diff_ofs);
-    if (start_part_num == 0)
-      this->set_first_block(true);
 
     this->cb->set_ofs(adjusted_start_ofs);
 
@@ -1507,10 +1508,21 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
       ret = flush(dpp, std::move(completed), y);
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " start_part_num is: " << start_part_num <<  dendl;
       if (ret < 0) {
-	if (first_block == true)
-	  this->last_part_done = true; //prevent infinte loop
-	else
-          last_adjusted_ofs = (adjusted_start_ofs-obj_max_req_size) > 0 ? adjusted_start_ofs-obj_max_req_size : 0;
+	if (first_block == true){
+          if (start_part_num == 0){
+            ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " first block is true" << dendl;
+	    this->last_part_done = true; //prevent infinte loop
+            last_adjusted_ofs = adjusted_start_ofs;
+	  }
+          else
+            last_adjusted_ofs = adjusted_start_ofs - obj_max_req_size;
+	}
+	else{
+          if (start_part_num == 0)
+            last_adjusted_ofs = adjusted_start_ofs;
+          else
+            last_adjusted_ofs = adjusted_start_ofs - obj_max_req_size;
+        }
         drain(dpp, y);
         ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to flush, r= " << ret << dendl;
         return ret;
@@ -1552,22 +1564,47 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
       remoteFlush(dpp, bl, source->get_creationTime(), y); 
     }
     else{ //backend
+      ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Reading data for oid: " << oid_in_cache << " from BACKEND!" << dendl;
       ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Info: draining data for oid: " << oid_in_cache << dendl;
-      if (first_block == true)
-        this->last_part_done = true; //prevent infinte loop
-      else
-        last_adjusted_ofs = (adjusted_start_ofs-obj_max_req_size) > 0 ? adjusted_start_ofs-obj_max_req_size : 0;
+      
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
+      if (first_block == true){
+        if (start_part_num == 0){
+          ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " first block is true" << dendl;
+	  this->last_part_done = true; //prevent infinte loop
+          last_adjusted_ofs = adjusted_start_ofs;
+	}
+        else
+          last_adjusted_ofs = adjusted_start_ofs - obj_max_req_size;
+      }
+      else{
+        if (start_part_num == 0)
+          last_adjusted_ofs = adjusted_start_ofs;
+        else
+          last_adjusted_ofs = adjusted_start_ofs - obj_max_req_size;
+      }
+
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " last_adjusted_ofs:" << last_adjusted_ofs << dendl;
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " offset:" << offset << dendl;
+
+      if (this->offset == last_adjusted_ofs)
+	break;
       ret = drain(dpp, y);
       if (ret < 0) {
         ldpp_dout(dpp, 0) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to drain, ret=" << ret << dendl;
 	return ret;
       }
 
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " offset:" << offset << dendl;
       break;
       /*
       ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Fetching object from backend store" << " for ofs: " << ofs << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
       //ret = next->iterate(dpp, adjusted_start_ofs, len_to_read, this->cb.get(), y);
-      ret = next->iterate(dpp, adjusted_start_ofs, len_to_read, client_cb, y);
+      ret;
+      }
+      remoteFlush(dpp, bl, source->get_creationTime(), y);
+    }
+et = next->iterate(dpp, adjusted_start_ofs, len_to_read, client_cb, y);
       if (ret < 0){
         ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to read from backend, ofs is: " << ofs << " adjusted_start_ofs: " << adjusted_start_ofs << " r= " << ret << dendl;
 	return ret;
@@ -1585,7 +1622,13 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
       ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Info: draining data for oid: " << oid_in_cache << " for ofs: " << ofs << dendl;
       //return this->cb->flush_last_part();
       //this->cb->set_last_part(true);
+
       last_adjusted_ofs = adjusted_start_ofs;
+      //last_adjusted_ofs = adjusted_start_ofs >= obj_max_req_size ? adjusted_start_ofs-obj_max_req_size : 0;
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " last_adjusted_ofs:" << last_adjusted_ofs << dendl;
+      ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " offset:" << offset << dendl;
+      //if (this->offset == last_adjusted_ofs)
+      //break;
       return drain(dpp, y);
     } 
     else {
@@ -1598,6 +1641,9 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
   } while (start_part_num < num_parts);
 
   ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Fetching object from backend store" << " for ofs: " << ofs << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
+  
+  ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " last_adjusted_ofs:" << last_adjusted_ofs << dendl;
+  ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " offset:" << offset << dendl;
 
   /*
   if (start_part_num != 0) {
@@ -1607,7 +1653,11 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
   
   this->cb->set_adjusted_start_ofs(adjusted_start_ofs);
   this->cb->set_read_ofs(diff_ofs);
-  this->cb->set_first_block(true);
+  /*
+  if (start_part_num == 0) {
+    this->cb->set_first_block(true);
+  }
+  */
 
   this->cb->set_ofs(adjusted_start_ofs);
 
