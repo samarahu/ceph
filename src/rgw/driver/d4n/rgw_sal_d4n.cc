@@ -1084,6 +1084,9 @@ void D4NFilterObject::D4NFilterReadOp::cancel() {
 }
 
 int D4NFilterObject::D4NFilterReadOp::drain(const DoutPrefixProvider* dpp, optional_yield y) {
+  if (blocks_info.size() == 0)
+    return 0;
+
   do{
     auto c = aio->wait();
     int r = flush(dpp, std::move(c), y);
@@ -1456,23 +1459,38 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
     int ret = 0;
     uint64_t id = adjusted_start_ofs, read_ofs = 0; //read_ofs is the actual offset to start reading from the current part/ chunk
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " start_part_num is: " << start_part_num <<  dendl;
-    if (start_part_num == (num_parts - 1)) {
-      len_to_read = len;
+    /*if (start_part_num == (num_parts - 1)) {
+      read_ofs = diff_ofs;
+      len_to_read = len - read_ofs;
       part_len = len;
-      cost = len;
+      cost = len_to_read;
+    } else if (start_part_num == 0) {
+      len_to_read = adjusted_start_ofs + obj_max_req_size - ofs;
+      cost = len_to_read;
+      part_len = obj_max_req_size;
+      read_ofs = diff_ofs;
     } else if (start_part_num < (num_parts - 1)) {
       len_to_read = obj_max_req_size;
       cost = obj_max_req_size;
       part_len = obj_max_req_size;
+      diff_ofs = 0;
     }
     if (start_part_num > (num_parts - 1)){
       return 0;
-      /*
-      ret = drain(dpp, y);
-      if (ret < 0) {
-        ldpp_dout(dpp, 0) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to drain, ret=" << ret << dendl;
-	return ret;
-      }*/
+    }*/
+    if (start_part_num == (num_parts - 1)) {
+      len_to_read = len;
+      part_len = len;
+      cost = len;
+    } else {
+      len_to_read = obj_max_req_size;
+      cost = obj_max_req_size;
+      part_len = obj_max_req_size;
+    }
+    if (start_part_num == 0) {
+      len_to_read -= diff_ofs;
+      //id += diff_ofs;
+      read_ofs = diff_ofs;
     }
 
     std::string oid_in_cache = prefix + "_" + std::to_string(adjusted_start_ofs) + "_" + std::to_string(part_len);
@@ -1546,6 +1564,7 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
     else if (cached_local == 3){ //remote lsvd
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " for ofs: " << ofs << " Remote LSVD" <<  dendl;
       cacheLocation = g_conf()->rgw_d4n_lsvd_cache_address;
+      //TODO: check if this is correct : AMIN
       ret = getRemote(dpp, (long long)adjusted_start_ofs, (long long)adjusted_start_ofs+(long long)len_to_read-1, source->get_key().get_oid(), cacheLocation, &bl, y); //send it to the remote cache
       if (ret < 0){
         ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to read from Remote LSVD, r= " << ret << dendl;
@@ -1556,7 +1575,7 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
     else if (cached_local == 4){ //remote cache
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " for ofs: " << ofs << " Remote Cache" <<  dendl;
       cacheLocation = block.hostsList.back(); //we read the object from the last cache accessing it
-      ret = getRemote(dpp, (long long)adjusted_start_ofs, (long long)adjusted_start_ofs+(long long)len_to_read-1, source->get_key().get_oid(), cacheLocation, &bl, y); //send it to the remote cache
+      ret = getRemote(dpp, (long long)adjusted_start_ofs+diff_ofs, (long long)part_len-1, source->get_key().get_oid(), cacheLocation, &bl, y); //send it to the remote cache
       if (ret < 0){
         ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to read from Remote Cache, r= " << ret << dendl;
 	return ret;
@@ -1587,8 +1606,9 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
       ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " last_adjusted_ofs:" << last_adjusted_ofs << dendl;
       ldpp_dout(dpp, 20) << __func__ << " " << __LINE__ << " offset:" << offset << dendl;
 
-      if (this->offset == last_adjusted_ofs)
-	break;
+      //if (this->offset == last_adjusted_ofs)
+      //if (blocks_info.size() == 0)
+      //  break;
       ret = drain(dpp, y);
       if (ret < 0) {
         ldpp_dout(dpp, 0) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to drain, ret=" << ret << dendl;
@@ -1659,12 +1679,14 @@ et = next->iterate(dpp, adjusted_start_ofs, len_to_read, client_cb, y);
   }
   */
 
-  this->cb->set_ofs(adjusted_start_ofs);
+  this->cb->set_ofs(adjusted_start_ofs); 
 
   
-  auto ret = next->iterate(dpp, adjusted_start_ofs, end, this->cb.get(), y);  
+  auto ret = next->iterate(dpp, adjusted_start_ofs, end, this->cb.get(), y); 
   if (ret < 0) {
     ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to fetch object from backend store, r= " << ret << dendl;
+    ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: adjusted_start_ofs: " << adjusted_start_ofs << " for object: " << source->get_key().get_oid() << dendl;
+    drain(dpp, y);
     return ret;
   }
     
@@ -1680,12 +1702,18 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::flush_last_part()
 
 int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl, off_t bl_ofs, off_t bl_len)
 {
-  ldpp_dout(dpp, 20) << "AMIN:DEBUG "<< __func__ << ": bl_ofs is: " << bl_ofs << dendl;
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
+  //ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " DATA is: " <<  bl.c_str() << dendl;
+
+  //ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " bl_ofs: " <<  bl_ofs << dendl;
+  //ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " bl_len: " <<  bl_len << dendl;
+
   auto rgw_get_obj_max_req_size = g_conf()->rgw_get_obj_max_req_size;
 
-  if (!last_part && bl.length() <= rgw_get_obj_max_req_size) {
+  //if (!last_part && bl.length() <= rgw_get_obj_max_req_size) {
+  if (!last_part) {
     if (first_block == true){
-      //auto r = client_cb->handle_data(bl, bl_ofs+read_ofs, bl_len-read_ofs); //AMIN-RANGE
+      //auto r = client_cb->handle_data(bl, bl_ofs+read_ofs, bl_len-read_ofs); AMIN_RANGE
       auto r = client_cb->handle_data(bl, bl_ofs+read_ofs, bl_len);
       this->set_first_block(false);
       if (r < 0) {
@@ -1698,8 +1726,6 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
         return r;
       }
     }
-      
-
   }
 
   //Accumulating data from backend store into rgw_get_obj_max_req_size sized chunks and then writing to cache
@@ -1747,8 +1773,12 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
     object.version = version;
 
     ldpp_dout(dpp, 20) << __func__ << ": version stored in update method is: " << version << dendl;
+    //ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " data is: " <<  bl.c_str() << dendl;
 
     if (bl.length() > 0 && last_part) { // if bl = bl_rem has data and this is the last part, write it to cache
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
+  	//ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " BL_REM DATA is: " <<  bl.c_str() << dendl;
+  	//ldpp_dout(dpp, 20) << __func__ << ": AMIN: " << __LINE__ << " BL_REM length is: " <<  bl.length() << dendl;
       //std::string oid = prefix + "_" + std::to_string(ofs) + "_" + std::to_string(bl_len); //AMIN-RANGE
       std::string oid = prefix + "_" + std::to_string(adjusted_start_ofs) + "_" + std::to_string(bl_len);
       if (!filter->get_policy_driver()->get_cache_policy()->exist_key(oid)) {
@@ -1781,6 +1811,7 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
       }
     } else if (bl.length() == rgw_get_obj_max_req_size && bl_rem.length() == 0) { // if bl is the same size as rgw_get_obj_max_req_size, write it to cache
       //std::string oid = prefix + "_" + std::to_string(ofs) + "_" + std::to_string(bl_len); //AMIN-RANGE
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
       std::string oid = prefix + "_" + std::to_string(adjusted_start_ofs) + "_" + std::to_string(bl_len);
       //block.blockID = ofs; //AMIN-RANGE
       block.blockID = adjusted_start_ofs;
@@ -1815,8 +1846,10 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
 
       bl.splice(0, len_to_copy, &bl_copy);
       bl_rem.claim_append(bl_copy);
+      ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << " data is not enough yet"<< dendl;
 
       if (bl_rem.length() == rgw_get_obj_max_req_size) {
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " adjusted_start_ofs: " << adjusted_start_ofs << dendl;
         //std::string oid = prefix + "_" + std::to_string(ofs) + "_" + std::to_string(bl_rem.length()); // AMIN_RANGE
         std::string oid = prefix + "_" + std::to_string(adjusted_start_ofs) + "_" + std::to_string(bl_rem.length());
           if (!filter->get_policy_driver()->get_cache_policy()->exist_key(oid)) {
