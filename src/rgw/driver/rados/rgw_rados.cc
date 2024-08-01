@@ -7218,6 +7218,8 @@ int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp,
   ObjectReadOperation op;
   struct get_obj_data* d = static_cast<struct get_obj_data*>(arg);
   string oid, key;
+  
+  ldpp_dout(dpp, 20) << "rados->get_obj_iterate_cb obj-ofs=" << obj_ofs << " read_ofs=" << read_ofs << " len=" << len << dendl;
 
   if (is_head_obj) {
     /* only when reading from the head object do we need to do the atomic test */
@@ -7271,6 +7273,7 @@ int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, 
   const uint64_t chunk_size = cct->_conf->rgw_get_obj_max_req_size;
   const uint64_t window_size = cct->_conf->rgw_get_obj_window_size;
 
+  ldpp_dout(dpp, 20) << "rados->iterate ofs=" << ofs << " end=" << end << dendl;
   auto aio = rgw::make_throttle(window_size, y);
   get_obj_data data(store, cb, &*aio, ofs, y);
 
@@ -7278,6 +7281,7 @@ int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, 
     state.obj = source->get_obj();
   }
 
+  ldpp_dout(dpp, 20) << "rados->iterate ofs=" << ofs << " end=" << end << dendl;
   int r = store->iterate_obj(dpp, source->get_ctx(), source->get_bucket_info(), state.obj,
                              ofs, end, chunk_size, _get_obj_iterate_cb, &data, y);
   if (r < 0) {
@@ -7302,6 +7306,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
   RGWObjState *astate = NULL;
   RGWObjManifest *manifest = nullptr;
 
+  ldpp_dout(dpp, 20) << "rados->iterate_obj ofs=" << ofs << " end=" << end << dendl;
 
   obj_to_raw(bucket_info.placement_rule, obj, &head_obj);
 
@@ -7316,6 +7321,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
   else
     len = end - ofs + 1;
 
+  ldpp_dout(dpp, 20) << "rados->iterate_obj read_ofs=" << read_ofs << " len=" << len << dendl;
 
   if (manifest) {
     /* now get the relevant object stripe */
@@ -7344,12 +7350,14 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
 
 	len -= read_len;
         ofs += read_len;
+    	ldpp_dout(dpp, 20) << " " << __LINE__ << " rados->iterate_obj ofs=" << ofs << " read_ofs=" << read_ofs << " len=" << len << dendl;
       }
     }
   } else {
     while (ofs <= end) {
       read_obj = head_obj;
       uint64_t read_len = std::min(len, max_chunk_size);
+    ldpp_dout(dpp, 20) << " " << __LINE__ << " rados->iterate_obj ofs=" << ofs << " read_len=" << read_len << " len=" << len << dendl;
 
       r = cb(dpp, read_obj, ofs, ofs, read_len, reading_from_head, astate, arg);
       if (r < 0) {

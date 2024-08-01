@@ -206,6 +206,7 @@ class D4NFilterObject : public FilterObject {
 	int64_t offset = 0; // next offset to write to client
         rgw::AioResultList completed; // completed read results, sorted by offset
         std::unordered_map<uint64_t, std::pair<uint64_t,uint64_t>> blocks_info;
+        std::unordered_map<uint64_t, std::pair<uint64_t,uint64_t>> blocks_info_remote;
 
         bool last_part_done = false;
 	int64_t last_adjusted_ofs = -1; 
