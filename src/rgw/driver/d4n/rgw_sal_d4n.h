@@ -217,8 +217,8 @@ class D4NFilterObject : public FilterObject {
 
 	int flush(const DoutPrefixProvider* dpp, rgw::AioResultList&& results, optional_yield y);
 	int lsvdFlush(const DoutPrefixProvider* dpp, rgw::AioResultList&& results, optional_yield y);
-	int remoteFlush(const DoutPrefixProvider* dpp, bufferlist bl, std::string creationTime, optional_yield y);
-	//int remoteFlush(const DoutPrefixProvider* dpp, int64_t ofs, int64_t end, RGWGetDataCB* cb, optional_yield y);
+	//int remoteFlush(const DoutPrefixProvider* dpp, bufferlist bl, std::string creationTime, optional_yield y);
+	int remoteFlush(const DoutPrefixProvider* dpp, bufferlist bl, uint64_t ofs, uint64_t len, uint64_t read_ofs, std::string creationTime, optional_yield y);
 	void cancel();
 	int drain(const DoutPrefixProvider* dpp, optional_yield y);
 	int lsvdDrain(const DoutPrefixProvider* dpp, optional_yield y);
