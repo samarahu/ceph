@@ -80,6 +80,21 @@ target_link_libraries(ceph_test_rgw_ssd_driver PRIVATE
   ${EXTRALIBS}
   )
 install(TARGETS ceph_test_rgw_ssd_driver DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+add_executable(ceph_test_rgw_parallel_put_get
+  test_parallel_put_get.cc
+  )
+target_include_directories(ceph_test_rgw_parallel_put_get
+  SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/src/rgw/")
+target_link_libraries(ceph_test_rgw_parallel_put_get PRIVATE
+  rgw_common
+  librados
+  ceph-common
+  ${rgw_libs}
+  ${UNITTEST_LIBS}
+  ${EXTRALIBS}
+  )
+install(TARGETS ceph_test_rgw_parallel_put_get DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 #unittest_rgw_bencode
