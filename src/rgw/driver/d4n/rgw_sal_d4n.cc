@@ -16,6 +16,9 @@
 #include "rgw_sal_d4n.h"
 #include "rgw_rest_remoted4n.h"
 #include "rgw_common.h"
+#include <chrono>
+#include <thread>
+
 
 namespace rgw { namespace sal {
 
@@ -1374,7 +1377,6 @@ int D4NFilterObject::D4NFilterReadOp::remoteFlush(const DoutPrefixProvider* dpp,
 */
 
 
-/* Amin
   std::string version = source->get_object_version();
   std::string prefix = source->get_prefix();
   Attrs attrs = source->get_object_attrs();
@@ -1393,6 +1395,7 @@ int D4NFilterObject::D4NFilterReadOp::remoteFlush(const DoutPrefixProvider* dpp,
   auto ret = source->driver->get_policy_driver()->get_cache_policy()->eviction(dpp, block.size, y);
   if (ret == 0) {
     ret = source->driver->get_cache_driver()->put(dpp, oid_in_cache, bl, bl.length(), attrs, y);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     if (ret == 0) {
       std::string objEtag = "";
       source->driver->get_policy_driver()->get_cache_policy()->update(dpp, oid_in_cache, ofs, len, version, dirty, std::stol(creationTime),  source->get_bucket()->get_owner(), y);
@@ -1417,7 +1420,6 @@ ldpp_dout(dpp, 20) << "AMIN:DEBUG " << __func__ << " offset is: " << ofs  << " l
     }
   }
 
-*/ 
 
 /*
     auto it = blocks_info_remote.find(offset);
