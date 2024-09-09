@@ -1028,8 +1028,9 @@ int D4NFilterObject::D4NFilterReadOp::prepare(optional_yield y, const DoutPrefix
       }
     }
     bufferlist etag_bl;
-    if (get_attr(dpp, RGW_ATTR_ETAG, etag_bl, y) < 0) {
-      return -EINVAL;
+    if ((ret = get_attr(dpp, RGW_ATTR_ETAG, etag_bl, y)) < 0) {
+      ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << "(): get_attr failed, ret=" << ret << dendl;
+      return ret;
     }
 
     if (params.mod_ptr || params.unmod_ptr) {
