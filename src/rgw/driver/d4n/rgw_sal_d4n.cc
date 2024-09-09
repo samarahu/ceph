@@ -520,6 +520,7 @@ int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optio
   ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): object name: " << this->get_name() << " bucket name: " << this->get_bucket()->get_name() << dendl;
   // entry that contains latest version for versioned and non-versioned objects
   int ret = -1;
+  rgw::d4n::CacheBlock block; 
   rgw::d4n::BlockDirectory* blockDir = this->driver->get_block_dir();
   if (is_latest_version) {
     std::string objName = this->get_name();
@@ -535,12 +536,10 @@ int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optio
       .hostsList = { dpp->get_cct()->_conf->rgw_d4n_l1_datacache_address },
       };
 
-    rgw::d4n::CacheBlock block = rgw::d4n::CacheBlock{
-      .cacheObj = object,
-      .blockID = 0,
-      .version = this->get_object_version(),
-      .size = 0,
-      };
+    block.cacheObj = object;
+    block.blockID = 0;
+    block.version = this->get_object_version();
+    block.size = 0;
 
     ret = blockDir->get(dpp, &block, y);
     if (ret == -ENOENT) {
@@ -549,7 +548,17 @@ int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optio
 	ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): BlockDirectory set method failed for head object with ret: " << ret << dendl;
       }
     } else if (ret == 0) { // head object exists; update instead of overwrite
-      block.prevVersion = {block.version, block.deleteMarker};
+      if (block.version == "null") { // null delete markers get overwritten in rgw
+	auto tempBlock = block;
+	tempBlock.cacheObj.objName = "_:null_" + block.cacheObj.objName;
+
+	if ((ret = blockDir->del(dpp, &tempBlock, y)) < 0 && ret != -ENOENT) {
+	  ldpp_dout(dpp, 0) << "Failed to delete delete marker block in block directory for: " << block.cacheObj.objName << ", ret=" << ret << dendl;
+	  return ret;
+	}
+      } else {
+	block.prevVersion = {block.version, block.deleteMarker};
+      }
       block.version = this->get_object_version();
       block.deleteMarker = false;
       block.cacheObj.dirty = dirty;
@@ -579,6 +588,7 @@ int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, optio
       .cacheObj = version_object,
       .blockID = 0,
       .version = this->get_object_version(),
+      .prevVersion = block.prevVersion,
       .size = 0,
     };
 
