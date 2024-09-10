@@ -8,7 +8,7 @@ namespace rgw { namespace cache {
 
 class SSDDriver : public CacheDriver {
 public:
-  SSDDriver(Partition& partition_info) : partition_info(partition_info) {}
+  SSDDriver(Partition& partition_info) : partition_info(partition_info), free_space(partition_info.size) {}
   virtual ~SSDDriver() {}
 
   virtual int initialize(const DoutPrefixProvider* dpp) override;

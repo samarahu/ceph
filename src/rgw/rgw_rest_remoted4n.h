@@ -52,7 +52,7 @@ public:
   void execute(optional_yield y) override;
   void send_response() override;
   const char* name() const override { return "set_remoted4n"; }
-  //RGWOpType get_type() override { return RGW_OP_ADMIN_SET_METADATA; }
+  RGWOpType get_type() override { return RGW_OP_PUT_OBJ; }
 };
 
 class RGWOp_RemoteD4N_Delete : public RGWRESTOp {

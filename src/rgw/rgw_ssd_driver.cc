@@ -21,6 +21,9 @@ int SSDDriver::initialize(const DoutPrefixProvider* dpp)
       partition_info.location += "/";
     }
 
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " partition is: " << partition_info.location << dendl;
+    this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
+
     try {
         if (efs::exists(partition_info.location)) {
             if (dpp->get_cct()->_conf->rgw_d4n_l1_evict_cache_on_start) {
@@ -85,9 +88,10 @@ int SSDDriver::initialize(const DoutPrefixProvider* dpp)
     aio_init(&ainit);
     #endif
 
-    efs::space_info space = efs::space(partition_info.location);
     //currently partition_info.size is unused
-    this->free_space = space.available;
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
 
     return 0;
 }
@@ -101,17 +105,22 @@ int SSDDriver::put(const DoutPrefixProvider* dpp, const std::string& key, const 
         spawn::yield_context yield = y.get_yield_context();
         this->put_async(dpp, y.get_io_context(), key, bl, len, attrs, yield[ec]);
     } else {
-        this->put_async(dpp, y.get_io_context(), key, bl, len, attrs, ceph::async::use_blocked[ec]);
+      this->put_async(dpp, y.get_io_context(), key, bl, len, attrs, ceph::async::use_blocked[ec]);
     }
     if (ec) {
         return ec.value();
     }
+
+    this->free_space -= len;
     return 0;
 }
 
 int SSDDriver::get(const DoutPrefixProvider* dpp, const std::string& key, off_t offset, uint64_t len, bufferlist& bl, rgw::sal::Attrs& attrs, optional_yield y)
 {
-    char buffer[len];
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " len is " << len << dendl;
+    //char buffer[len];
+    char * buffer = (char*) malloc (sizeof(char)*len);
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key is " << key << dendl;
     std::string location = partition_info.location + key;
 
     ldpp_dout(dpp, 20) << __func__ << "(): location=" << location << dendl;
@@ -179,8 +188,10 @@ int SSDDriver::append_data(const DoutPrefixProvider* dpp, const::std::string& ke
         return -errno;
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    this->free_space -= nbytes;
 
     return 0;
 }
@@ -319,14 +330,19 @@ rgw::AioResultList SSDDriver::put_async(const DoutPrefixProvider* dpp, optional_
 int SSDDriver::delete_data(const DoutPrefixProvider* dpp, const::std::string& key, optional_yield y)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t size = efs::file_size(filePath);
+
 
     if (!efs::remove(location)) {
         ldpp_dout(dpp, 0) << "ERROR: delete_data::remove has failed to remove the file: " << location << dendl;
         return -EIO;
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    this->free_space += size;
 
     return 0;
 }
@@ -397,8 +413,9 @@ void SSDDriver::AsyncWriteRequest::libaio_write_cb(sigval sigval) {
     }
 
     Partition partition_info = op.priv_data->get_current_partition_info(op.dpp);
-    efs::space_info space = efs::space(partition_info.location);
-    op.priv_data->set_free_space(op.dpp, space.available);
+    //efs::space_info space = efs::space(partition_info.location);
+    //op.priv_data->set_free_space(op.dpp, space.available);
+    //op.priv_data->set_free_space(op.dpp, op.dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size);
 
     std::string new_path = partition_info.location + op.key;
     std::string old_path = partition_info.location + op.temp_key;
@@ -459,6 +476,8 @@ void SSDDriver::AsyncReadOp::libaio_cb_aio_dispatch(sigval sigval)
 int SSDDriver::update_attrs(const DoutPrefixProvider* dpp, const std::string& key, const rgw::sal::Attrs& attrs, optional_yield y)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     for (auto& it : attrs) {
@@ -476,14 +495,27 @@ int SSDDriver::update_attrs(const DoutPrefixProvider* dpp, const std::string& ke
             return ret;
         }
     }
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+
+    
+    //AMIN
+    uint64_t after_size = efs::file_size(filePath);
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    if (after_size > prev_size){
+      this->free_space -= (after_size - prev_size);
+    }
+    else if (after_size < prev_size){
+      this->free_space += (prev_size - after_size);
+    }
+
     return 0;
 }
 
 int SSDDriver::delete_attrs(const DoutPrefixProvider* dpp, const std::string& key, rgw::sal::Attrs& del_attrs, optional_yield y)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     for (auto& it : del_attrs) {
@@ -494,8 +526,16 @@ int SSDDriver::delete_attrs(const DoutPrefixProvider* dpp, const std::string& ke
         }
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    uint64_t after_size = efs::file_size(filePath);
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    if (after_size > prev_size){
+      this->free_space -= (after_size - prev_size);
+    }
+    else if (after_size < prev_size){
+      this->free_space += (prev_size - after_size);
+    }
 
     return 0;
 }
@@ -537,6 +577,8 @@ int SSDDriver::get_attrs(const DoutPrefixProvider* dpp, const std::string& key, 
 int SSDDriver::set_attrs(const DoutPrefixProvider* dpp, const std::string& key, const rgw::sal::Attrs& attrs, optional_yield y)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     for (auto& [attr_name, attr_val_bl] : attrs) {
@@ -550,8 +592,17 @@ int SSDDriver::set_attrs(const DoutPrefixProvider* dpp, const std::string& key, 
         }
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    uint64_t after_size = efs::file_size(filePath);
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    if (after_size > prev_size){
+      this->free_space -= (after_size - prev_size);
+    }
+    else if (after_size < prev_size){
+      this->free_space += (prev_size - after_size);
+    }
+
 
     return 0;
 }
@@ -590,6 +641,8 @@ int SSDDriver::get_attr(const DoutPrefixProvider* dpp, const std::string& key, c
 int SSDDriver::set_attr(const DoutPrefixProvider* dpp, const std::string& key, const std::string& attr_name, const std::string& attr_val, optional_yield y)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): set_attr: key: " << attr_name << " val: " << attr_val << dendl;
@@ -600,8 +653,17 @@ int SSDDriver::set_attr(const DoutPrefixProvider* dpp, const std::string& key, c
         return ret;
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    uint64_t after_size = efs::file_size(filePath);
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    if (after_size > prev_size){
+      this->free_space -= (after_size - prev_size);
+    }
+    else if (after_size < prev_size){
+      this->free_space += (prev_size - after_size);
+    }
+
 
     return 0;
 }
@@ -609,6 +671,8 @@ int SSDDriver::set_attr(const DoutPrefixProvider* dpp, const std::string& key, c
 int SSDDriver::delete_attr(const DoutPrefixProvider* dpp, const std::string& key, const std::string& attr_name)
 {
     std::string location = partition_info.location + key;
+    efs::path filePath = location;
+    uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     auto ret = removexattr(location.c_str(), attr_name.c_str());
@@ -617,8 +681,17 @@ int SSDDriver::delete_attr(const DoutPrefixProvider* dpp, const std::string& key
         return ret;
     }
 
-    efs::space_info space = efs::space(partition_info.location);
-    this->free_space = space.available;
+    //AMIN
+    uint64_t after_size = efs::file_size(filePath);
+    //efs::space_info space = efs::space(partition_info.location);
+    //this->free_space = space.available;
+    if (after_size > prev_size){
+      this->free_space -= (after_size - prev_size);
+    }
+    else if (after_size < prev_size){
+      this->free_space += (prev_size - after_size);
+    }
+
 
     return 0;
 }

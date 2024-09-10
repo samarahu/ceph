@@ -119,7 +119,7 @@ int LFUDAPolicy::init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_
 }
 
 
-int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int minAvgWeight, std::string cache_address, optional_yield y) {
+int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int *minAvgWeight, std::string *cache_address, optional_yield y) {
   response<std::string, std::string, std::string> resp;
 
   try { 
@@ -132,14 +132,24 @@ int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int minAvgWeight
     redis_exec(conn, ec, req, resp, y);
 
     if (ec) {
+      ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() Error: " << ec.value() << dendl;
       return -ec.value();
     }
   } catch (std::exception &e) {
+    ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() Error: " << "EINVAL" << dendl;
     return -EINVAL;
   }
 
-  minAvgWeight =  std::stoi(std::get<0>(resp).value()) / std::stoi(std::get<1>(resp).value());
-  cache_address =  std::get<2>(resp).value();
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() resp<0> is " << std::get<0>(resp).value() << dendl;
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() resp<1> is " << std::get<1>(resp).value() << dendl;
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() resp<2> is " << std::get<2>(resp).value() << dendl;
+
+  if (std::stoi(std::get<1>(resp).value()) > 0)
+    *minAvgWeight =  std::stoi(std::get<0>(resp).value()) / std::stoi(std::get<1>(resp).value());
+  else
+    *minAvgWeight = 0; 
+  *cache_address =  std::get<2>(resp).value();
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() cache_address is " << cache_address << dendl;
   return 0;
 }
 
@@ -290,18 +300,27 @@ CacheBlock* LFUDAPolicy::get_victim_block(const DoutPrefixProvider* dpp, optiona
 
   /* Get victim cache block */
   std::string key = entries_heap.top()->key;
+  
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() key is: " << key << dendl;
+
   CacheBlock* victim = new CacheBlock();
 
   victim->cacheObj.bucketName = key.substr(0, key.find('_')); 
-  key.erase(0, key.find('_') + 1);
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() bucket is: " << victim->cacheObj.bucketName << dendl;
+  key.erase(0, key.find('_') + 1); //bucket
+  key.erase(0, key.find('_') + 1); //version
   victim->cacheObj.objName = key.substr(0, key.find('_'));
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() object is: " << victim->cacheObj.objName << dendl;
   victim->blockID = entries_heap.top()->offset;
   victim->size = entries_heap.top()->len;
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() blockID is: " << victim->blockID << dendl;
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() size is: " << victim->size << dendl;
 
   if (dir->get(victim, y) < 0) {
     return nullptr;
   }
 
+  ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() getting block from directorty was successful. version is: " << victim->version << dendl;
   return victim;
 }
 
@@ -410,6 +429,8 @@ int LFUDAPolicy::getRemote(const DoutPrefixProvider* dpp, CacheBlock *victim, st
 int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional_yield y) {
   uint64_t freeSpace = cacheDriver->get_free_space(dpp);
 
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " free space is " << freeSpace << dendl;
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " size is " << size << dendl;
   while (freeSpace < size) { // TODO: Think about parallel reads and writes; can this turn into an infinite loop? 
     CacheBlock* victim = get_victim_block(dpp, y);
 
@@ -421,6 +442,7 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 
     const std::lock_guard l(lfuda_lock);
     std::string key = entries_heap.top()->key;
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key is " << key << dendl;
     auto it = entries_map.find(key);
     if (it == entries_map.end()) {
       delete victim;
@@ -430,11 +452,13 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
     //int avgWeight = weightSum / entries_map.size();
     int avgWeight;
     std::string remoteCacheAddress;
-    if (getMinAvgWeight(dpp, avgWeight, remoteCacheAddress, y) < 0){
+    if (getMinAvgWeight(dpp, &avgWeight, &remoteCacheAddress, y) < 0){
       ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): Could not retrieve min average weight." << dendl;
       delete victim;
       return -ENOENT;
     }
+
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " remote cache address is " << remoteCacheAddress << dendl;
 
     if (victim->hostsList.size() == 1 && victim->hostsList[0] == dpp->get_cct()->_conf->rgw_local_cache_address) { /* Last copy */
       if (victim->globalWeight) {
@@ -464,6 +488,8 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 	if (it->second->dirty == true)
 	  remoteKey = "D_"+key;
 
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " size is " << size << dendl;
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " remote cache address is " << remoteCacheAddress << dendl;
     	cacheDriver->get(dpp, key, 0, it->second->len, out_bl, obj_attrs, y);
 	if (int ret = sendRemote(dpp, victim, remoteCacheAddress, remoteKey, &out_bl, y) < 0){
           delete victim;
@@ -512,10 +538,12 @@ void LFUDAPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64
   }  
 
   erase(dpp, key, y);
-  
+ 
   LFUDAEntry *e = new LFUDAEntry(key, offset, len, version, dirty, creationTime, user, localWeight);
-  handle_type handle = entries_heap.push(e);
-  e->set_handle(handle);
+  if (offset != 0 || len != 0){ //not a head object 
+    handle_type handle = entries_heap.push(e);
+    e->set_handle(handle);
+  }
   entries_map.emplace(key, e);
 
   std::string oid_in_cache = key;
@@ -547,7 +575,9 @@ bool LFUDAPolicy::erase(const DoutPrefixProvider* dpp, const std::string& key, o
 
   weightSum -= ((p->second->localWeight < 0) ? 0 : p->second->localWeight);
 
-  entries_heap.erase(p->second->handle);
+  if (p->second->offset != 0 || p->second->len != 0){ //not a head object
+    entries_heap.erase(p->second->handle);
+  }
   entries_map.erase(p);
 
   return true;

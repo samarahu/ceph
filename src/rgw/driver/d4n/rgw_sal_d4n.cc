@@ -1395,7 +1395,7 @@ int D4NFilterObject::D4NFilterReadOp::remoteFlush(const DoutPrefixProvider* dpp,
   auto ret = source->driver->get_policy_driver()->get_cache_policy()->eviction(dpp, block.size, y);
   if (ret == 0) {
     ret = source->driver->get_cache_driver()->put(dpp, oid_in_cache, bl, bl.length(), attrs, y);
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(700));
     if (ret == 0) {
       std::string objEtag = "";
       source->driver->get_policy_driver()->get_cache_policy()->update(dpp, oid_in_cache, ofs, len, version, dirty, std::stol(creationTime),  source->get_bucket()->get_owner(), y);
@@ -1984,7 +1984,9 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
         block.size = bl.length();
         block.version = version;
         block.dirty = false; //Reading from the backend, data is clean
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " before EVICTION " << dendl;
         auto ret = filter->get_policy_driver()->get_cache_policy()->eviction(dpp, block.size, *y);
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " after EVICTION " << dendl;
         if (ret == 0) {
           ret = filter->get_cache_driver()->put(dpp, oid, bl, bl.length(), attrs, *y);
 	  
@@ -2017,7 +2019,9 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
       block.dirty = dirty;
 
       if (!filter->get_policy_driver()->get_cache_policy()->exist_key(oid)) { //In case of concurrent reads for the same object, the block is already cached
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " before EVICTION " << dendl;
         auto ret = filter->get_policy_driver()->get_cache_policy()->eviction(dpp, block.size, *y);
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " after EVICTION " << dendl;
         if (ret == 0) {
           ret = filter->get_cache_driver()->put(dpp, oid, bl, bl.length(), attrs, *y);
 	 
@@ -2056,7 +2060,9 @@ int D4NFilterObject::D4NFilterReadOp::D4NFilterGetCB::handle_data(bufferlist& bl
           block.version = version;
 	  block.dirty = dirty;
 
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " before EVICTION " << dendl;
           auto ret = filter->get_policy_driver()->get_cache_policy()->eviction(dpp, block.size, *y);
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " after EVICTION " << dendl;
           if (ret == 0) {
             ret = filter->get_cache_driver()->put(dpp, oid, bl_rem, bl_rem.length(), attrs, *y);
 	    
