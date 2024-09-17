@@ -492,11 +492,21 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
         ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " remote cache address is " << remoteCacheAddress << dendl;
     	cacheDriver->get(dpp, key, 0, it->second->len, out_bl, obj_attrs, y);
 	if (int ret = sendRemote(dpp, victim, remoteCacheAddress, remoteKey, &out_bl, y) < 0){
+          ldpp_dout(dpp, 0) << "ERROR: " << __func__ << "(): " << __LINE__ << " sending to remote has failed: " << remoteCacheAddress << dendl;
           delete victim;
           return ret;
         }
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " sending to remote is done: " << remoteCacheAddress << dendl;
+        if (int ret = dir->update_field(victim, "blockHosts", remoteCacheAddress, y) < 0){
+          ldpp_dout(dpp, 0) << "ERROR: " << __func__ << "(): " << __LINE__ << " updating directory has failed!" << dendl;
+          delete victim;
+          return ret;
+        }
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
       }
+      ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     }
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
 
     victim->globalWeight += it->second->localWeight;
     if (int ret = dir->update_field(victim, "globalWeight", std::to_string(victim->globalWeight), y) < 0) {
@@ -504,13 +514,16 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
       return ret;
     }
 
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     if (int ret = dir->remove_host(victim, dpp->get_cct()->_conf->rgw_local_cache_address, y) < 0) {
       delete victim;
       return ret;
     }
 
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     delete victim;
 
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     if (int ret = cacheDriver->del(dpp, key, y) < 0) 
       return ret;
 
@@ -520,10 +533,12 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 
     age = std::max(it->second->localWeight, age);
 
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     erase(dpp, key, y);
     freeSpace = cacheDriver->get_free_space(dpp);
   }
   
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
   return 0;
 }
 
