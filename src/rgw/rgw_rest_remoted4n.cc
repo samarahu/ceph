@@ -316,15 +316,17 @@ void RGWOp_RemoteD4N_Put::execute(optional_yield y) {
     return;
   }
 
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
   s->object->set_instance(version);
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
 
   time_t creationTime = time(NULL);
   dirty = false; //we should not clean it
 
-  //FIXME: AMIN: this is only for test, remove it
-  //rgw_user user;
-  //user.tenant = "AMIN_TEST";
-
+  //FIXME: AMIN: this is only for test, change it
+  rgw_user user;
+  user.tenant = "RGW";
+  /*
   RGWAccessKey accessKey;
   std::unique_ptr<rgw::sal::User> c_user = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_user(s->object->get_bucket()->get_owner());
   int ret = c_user->load_user(s, y);
@@ -336,40 +338,53 @@ void RGWOp_RemoteD4N_Put::execute(optional_yield y) {
     op_ret = -1;
     return;
   }
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
   
   rgw_user user = c_user->get_id();
   
   accessKey.id = c_user->get_info().access_keys.begin()->second.id;
   accessKey.key = c_user->get_info().access_keys.begin()->second.key;
+  */
 
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
   static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  user, y);
   //static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_policy_driver()->get_cache_policy()->update(s, oid_in_cache, offset, len, version, dirty, creationTime,  s->object->get_bucket()->get_owner(), y);
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
 
+
+  //FIXME: should this part be done in local cache or on the remote side?
+  /*
   rgw::d4n::CacheBlockCpp block;
   block.cacheObj.objName = objectName;
   block.cacheObj.bucketName = bucketName;
   block.blockID = offset;
   block.size = len;
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
 
   op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_block_dir_cpp()->update_field(&block, "blockHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
   if (op_ret < 0) {
     ldpp_dout(s, 5) << "ERROR: can't update block directory entry: " << cpp_strerror(op_ret) << dendl;
     return;
   }
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
 
   rgw::d4n::CacheObjectCpp object;
   object.objName = objectName;
   object.bucketName = bucketName;
 
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
   op_ret = static_cast<rgw::sal::D4NFilterDriver*>(driver)->get_obj_dir_cpp()->update_field(&object, "objHosts", s->get_cct()->_conf->rgw_local_cache_address, y);
   if (op_ret < 0) {
     ldpp_dout(s, 5) << "ERROR: can't update object directory entry: " << cpp_strerror(op_ret) << dendl;
     return;
   }
+  */
 
   // translate internal codes into return header
   if (op_ret == 0)
-    update_status = "created";
+    update_status = "applied";
+    //update_status = "created";
+  ldpp_dout(s, 20) << " AMIN: " << __func__ << ": " << __LINE__ << dendl;
 }
 
 void RGWOp_RemoteD4N_Put::send_response() {
