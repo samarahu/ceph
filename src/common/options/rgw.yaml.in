@@ -3615,7 +3615,7 @@ options:
   type: size
   level: advanced
   desc: datacache maximum size on disk in bytes
-  default: 1_G
+  default: 30_G
   services:
   - rgw
   with_legacy: true

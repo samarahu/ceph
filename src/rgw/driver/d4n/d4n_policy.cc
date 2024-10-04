@@ -487,7 +487,8 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 	std::string remoteKey = key;
 	if (it->second->dirty == true)
 	  remoteKey = "D_"+key;
-
+	
+	/*
         ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " size is " << size << dendl;
         ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " remote cache address is " << remoteCacheAddress << dendl;
     	cacheDriver->get(dpp, key, 0, it->second->len, out_bl, obj_attrs, y);
@@ -503,6 +504,7 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
           return ret;
         }
         ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+	*/
       }
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     }
