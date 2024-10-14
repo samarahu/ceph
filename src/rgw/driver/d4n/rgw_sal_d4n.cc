@@ -2270,7 +2270,7 @@ int D4NFilterWriter::prepare(optional_yield y)
   d4n_writecache = g_conf()->d4n_writecache_enabled;
 
   if (d4n_writecache == false) {
-    ldpp_dout(dpp, 0) << "D4NFilterWriter::" << __func__ << "(): calling next process" << dendl;
+    ldpp_dout(dpp, 0) << "D4NFilterWriter::" << __func__ << "(): calling next->prepare" << dendl;
     return next->prepare(y);
   } else {
     //for non-versioned buckets or version suspended buckets, we need to delete the older dirty blocks of the object from the cache as dirty blocks do not get evicted
