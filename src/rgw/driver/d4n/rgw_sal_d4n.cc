@@ -515,17 +515,13 @@ int D4NFilterObject::calculate_version(const DoutPrefixProvider* dpp, optional_y
   //versioned objects have instance set to versionId, and get_oid() returns oid containing instance, hence using id tag as version for non versioned objects only
   ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): object name: " << this->get_name() << " instance: " << this->have_instance() << dendl;
   if (! this->have_instance() && version.empty()) {
-    if ( this->get_bucket()->versioned() && !this->get_bucket()->versioning_enabled()) {
-      version = "null";
+    bufferlist bl;
+    if (this->get_attr(RGW_ATTR_ID_TAG, bl)) {
+      version = bl.c_str();
+      ldpp_dout(dpp, 20) << __func__ << " id tag version is: " << version << dendl;
     } else {
-      bufferlist bl;
-      if (this->get_attr(RGW_ATTR_ID_TAG, bl)) {
-        version = bl.c_str();
-        ldpp_dout(dpp, 20) << __func__ << " id tag version is: " << version << dendl;
-      } else {
-        ldpp_dout(dpp, 0) << __func__ << " Failed to find id tag" << dendl;
-        return -ENOENT;
-      }
+      ldpp_dout(dpp, 0) << __func__ << " Failed to find id tag" << dendl;
+      return -ENOENT;
     }
   }
   if (this->have_instance()) {
