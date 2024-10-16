@@ -789,6 +789,7 @@ int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, std::
       .cacheObj = version_object,
       .blockID = 0,
       .version = this->get_object_version(),
+      .deleteMarker = this->delete_marker,
       .size = 0,
     };
 
