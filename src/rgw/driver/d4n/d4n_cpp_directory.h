@@ -9,6 +9,7 @@
 #include <list>
 #include <cstdint>
 #include <boost/lexical_cast.hpp>
+#include "driver/d4n/d4n_hashing.h"
 
 namespace rgw { namespace d4n {
 
@@ -40,6 +41,8 @@ struct CacheBlockCpp {
 
 
 class RGWDirectory{
+  friend uint16_t crc16(const char *buf, int len);
+  friend unsigned int hash_slot(const char *key, int keylen);
 public:
 	RGWDirectory(std::shared_ptr<cpp_redis::client[]>& conn): client_conn(conn) {}
 	virtual ~RGWDirectory(){}
@@ -93,6 +96,7 @@ public:
 	int get(CacheBlockCpp *ptr, optional_yield y);
         int copy(CacheBlockCpp* ptr, std::string copyName, std::string copyBucketName, optional_yield y){return 0;} //TODO: implement this
 	int del(CacheBlockCpp *ptr, optional_yield y);
+	int remove_host(CacheBlockCpp* block, std::string delValue, optional_yield y);
 	int update_field(CacheBlockCpp *ptr, std::string field, std::string value, optional_yield y);
 private:
 	int exist_key(CacheBlockCpp *ptr);

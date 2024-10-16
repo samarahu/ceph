@@ -26,9 +26,11 @@
 #include "rgw_redis_driver.h"
 #include "rgw_rest_conn.h"
 
-#include "driver/d4n/d4n_directory.h"
+//#include "driver/d4n/d4n_directory.h"
 #include "driver/d4n/d4n_cpp_directory.h"
-#include "driver/d4n/d4n_policy.h"
+//#include "driver/d4n/d4n_policy.h"
+#include "driver/d4n/d4n_cpp_policy.h"
+#include "d4n_hashing.h"
 
 #include <boost/intrusive/list.hpp>
 #include <boost/asio/io_context.hpp>
@@ -36,7 +38,8 @@
 #include <boost/redis/connection.hpp>
 
 namespace rgw::d4n {
-  class PolicyDriver;
+  //class PolicyDriver;
+  class RGWPolicyDriver;
   class D4NGetObjectCB;
 }
 
@@ -70,9 +73,10 @@ class D4NFilterDriver : public FilterDriver {
     rgw::cache::CacheDriver* lsvdCacheDriver;
     //rgw::d4n::ObjectDirectory* objDir;
     //rgw::d4n::BlockDirectory* blockDir;
+    //rgw::d4n::PolicyDriver* policyDriver;
     rgw::d4n::RGWBlockDirectory* blockDirCpp;
     rgw::d4n::RGWObjectDirectory* objectDirCpp;
-    rgw::d4n::PolicyDriver* policyDriver;
+    rgw::d4n::RGWPolicyDriver* policyDriverCpp;
     boost::asio::io_context& io_context;
     bool lsvd_cache_enabled = false;
 
@@ -98,9 +102,10 @@ class D4NFilterDriver : public FilterDriver {
     rgw::cache::CacheDriver* get_lsvd_cache_driver() { return lsvdCacheDriver; }
     //rgw::d4n::ObjectDirectory* get_obj_dir() { return objDir; }
     //rgw::d4n::BlockDirectory* get_block_dir() { return blockDir; }
+    //rgw::d4n::PolicyDriver* get_policy_driver() { return policyDriver; }
     rgw::d4n::RGWBlockDirectory* get_block_dir_cpp() { return blockDirCpp; }
     rgw::d4n::RGWObjectDirectory* get_obj_dir_cpp() { return objectDirCpp; }
-    rgw::d4n::PolicyDriver* get_policy_driver() { return policyDriver; }
+    rgw::d4n::RGWPolicyDriver* get_policy_driver() { return policyDriverCpp; }
 };
 
 class D4NFilterUser : public FilterUser {

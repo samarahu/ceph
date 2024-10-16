@@ -45,14 +45,13 @@ D4NFilterDriver::D4NFilterDriver(Driver* _next, boost::asio::io_context& io_cont
 {
   const auto& config_cache = g_conf().get_val<std::string>("rgw_d4n_cache_backend");
 
-
   //connOD = std::make_shared<connection>(boost::asio::make_strand(io_context));
   //connBD = std::make_shared<connection>(boost::asio::make_strand(io_context));
-  connCP = std::make_shared<connection>(boost::asio::make_strand(io_context));
+  //connCP = std::make_shared<connection>(boost::asio::make_strand(io_context));
 
   std::shared_ptr<cpp_redis::client[]> conn_cpp_OD(new cpp_redis::client[g_conf()->rgw_directory_master_count]);
   std::shared_ptr<cpp_redis::client[]> conn_cpp_BD(new cpp_redis::client[g_conf()->rgw_directory_master_count]);
-  //std::shared_ptr<cpp_redis::client[]> conn_cpp_CP(new cpp_redis::client[g_conf()->rgw_directory_master_count]);
+  std::shared_ptr<cpp_redis::client[]> conn_cpp_CP(new cpp_redis::client[g_conf()->rgw_directory_master_count]);
 
   rgw::cache::Partition partition_info;
   partition_info.name = "d4n";
@@ -79,12 +78,10 @@ D4NFilterDriver::D4NFilterDriver(Driver* _next, boost::asio::io_context& io_cont
 
   //objDir = new rgw::d4n::ObjectDirectory(connOD);
   //blockDir = new rgw::d4n::BlockDirectory(connBD);
-  policyDriver = new rgw::d4n::PolicyDriver(connCP, cacheDriver, "lfuda");
+  //policyDriver = new rgw::d4n::PolicyDriver(connCP, cacheDriver, "lfuda");
   blockDirCpp = new rgw::d4n::RGWBlockDirectory(conn_cpp_BD);
   objectDirCpp = new rgw::d4n::RGWObjectDirectory(conn_cpp_OD);
-  //objDir = new rgw::d4n::ObjectDirectory(io_context);
-  //blockDir = new rgw::d4n::BlockDirectory(io_context);
-  //policyDriver = new rgw::d4n::PolicyDriver(io_context, cacheDriver, "lfuda");
+  policyDriverCpp = new rgw::d4n::RGWPolicyDriver(conn_cpp_CP, cacheDriver, "lfuda");
 }
 
 D4NFilterDriver::~D4NFilterDriver()
@@ -92,7 +89,7 @@ D4NFilterDriver::~D4NFilterDriver()
   // call cancel() on the connection's executor
   //boost::asio::dispatch(connOD->get_executor(), [c = connOD] { c->cancel(); });
   //boost::asio::dispatch(connBD->get_executor(), [c = connBD] { c->cancel(); });
-  boost::asio::dispatch(connCP->get_executor(), [c = connCP] { c->cancel(); });
+  //boost::asio::dispatch(connCP->get_executor(), [c = connCP] { c->cancel(); });
 
   if (lsvd_cache_enabled == true) {
     delete lsvdCacheDriver;
@@ -101,9 +98,10 @@ D4NFilterDriver::~D4NFilterDriver()
   delete cacheDriver;
   //delete objDir; 
   //delete blockDir; 
-  delete policyDriver;
+  //delete policyDriver;
   delete blockDirCpp; 
   delete objectDirCpp; 
+  delete policyDriverCpp;
 }
 
 int D4NFilterDriver::initialize(CephContext *cct, const DoutPrefixProvider *dpp)
@@ -128,7 +126,7 @@ int D4NFilterDriver::initialize(CephContext *cct, const DoutPrefixProvider *dpp)
 
   //connOD->async_run(cfg, {}, net::consign(net::detached, connOD));
   //connBD->async_run(cfg, {}, net::consign(net::detached, connBD));
-  connCP->async_run(cfg, {}, net::consign(net::detached, connCP));
+  //connCP->async_run(cfg, {}, net::consign(net::detached, connCP));
   
 
   FilterDriver::initialize(cct, dpp);
@@ -140,9 +138,10 @@ int D4NFilterDriver::initialize(CephContext *cct, const DoutPrefixProvider *dpp)
   cacheDriver->initialize(dpp);
   //objDir->init(cct, dpp);
   //blockDir->init(cct, dpp);
-  policyDriver->get_cache_policy()->init(cct, dpp, io_context, next);
+  //policyDriver->get_cache_policy()->init(cct, dpp, io_context, next);
   blockDirCpp->init(cct);
   objectDirCpp->init(cct);
+  policyDriverCpp->get_cache_policy()->init(cct, dpp, io_context, next);
 
   return 0;
 }

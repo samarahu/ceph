@@ -6,8 +6,8 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include <boost/system/detail/errc.hpp>
 
-#include "d4n_directory.h"
 #include "rgw_sal_d4n.h"
+#include "driver/d4n/d4n_hashing.h"
 #include "rgw_cache_driver.h"
 
 #define dout_subsys ceph_subsys_rgw
@@ -22,7 +22,9 @@ namespace asio = boost::asio;
 namespace sys = boost::system;
 
 
-class CachePolicy {
+class RGWCachePolicy {
+  friend uint16_t crc16(const char *buf, int len);
+  friend unsigned int hash_slot(const char *key, int keylen);
   protected:
     struct Entry : public boost::intrusive::list_base_hook<> {
       std::string key;
@@ -62,8 +64,8 @@ class CachePolicy {
     };
 
   public:
-    CachePolicy() {}
-    virtual ~CachePolicy() = default; 
+    RGWCachePolicy() {}
+    virtual ~RGWCachePolicy() = default; 
 
     virtual int init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver *_driver) = 0;
     //virtual int init(CephContext *cct, const DoutPrefixProvider* dpp, rgw::sal::Driver *_driver) = 0;
@@ -76,7 +78,7 @@ class CachePolicy {
     virtual void cleaning(const DoutPrefixProvider* dpp) = 0;
 };
 
-class LFUDAPolicy : public CachePolicy {
+class RGWLFUDAPolicy : public RGWCachePolicy {
   private:
     template<typename T>
     struct EntryComparator {
@@ -108,19 +110,31 @@ class LFUDAPolicy : public CachePolicy {
     int age = 1, weightSum = 0, postedSum = 0;
     optional_yield y = null_yield;
 
-    std::shared_ptr<connection> conn;
-    BlockDirectory* dir;
+    //net::io_context& io;
+    //std::shared_ptr<connection> conn;
+    std::shared_ptr<cpp_redis::client[]> client_conn;
+    RGWBlockDirectory* dir;
     rgw::cache::CacheDriver* cacheDriver;
     std::optional<asio::steady_timer> rthread_timer;
     rgw::sal::Driver *driver;
     std::thread tc;
+    std::thread lfuda_t;
+    CephContext *cct;
 
-    int sendRemote(const DoutPrefixProvider* dpp, CacheBlock *victim, std::string remoteCacheAddress, std::string key, bufferlist* out_bl, optional_yield y);
+    void connectClient();
+    int findClient(std::string key);
+    int exist_field(std::string key, std::string field);
+    int set(std::string key, std::string field, std::string value);
+    std::string get(std::string key, std::string field);
+    
+    int sendRemote(const DoutPrefixProvider* dpp, CacheBlockCpp *victim, std::string remoteCacheAddress, std::string key, bufferlist* out_bl, optional_yield y);
     int getMinAvgWeight(const DoutPrefixProvider* dpp, int* minAvgWeight, std::string* cache_address, optional_yield y);
-    CacheBlock* get_victim_block(const DoutPrefixProvider* dpp, optional_yield y);
+    CacheBlockCpp* get_victim_block(const DoutPrefixProvider* dpp, optional_yield y);
     int age_sync(const DoutPrefixProvider* dpp, optional_yield y); 
     int local_weight_sync(const DoutPrefixProvider* dpp, optional_yield y); 
-    asio::awaitable<void> redis_sync(const DoutPrefixProvider* dpp, optional_yield y);
+    void redis_sync(const DoutPrefixProvider* dpp, optional_yield y);
+
+    /*
     void rthread_stop() {
       std::lock_guard l{lfuda_lock};
 
@@ -128,6 +142,8 @@ class LFUDAPolicy : public CachePolicy {
 	rthread_timer->cancel();
       }
     }
+    */
+
     LFUDAEntry* find_entry(std::string key) { 
       auto it = entries_map.find(key); 
       if (it == entries_map.end())
@@ -136,14 +152,17 @@ class LFUDAPolicy : public CachePolicy {
     }
 
   public:
-    LFUDAPolicy(std::shared_ptr<connection>& conn, rgw::cache::CacheDriver* cacheDriver) : CachePolicy(), 
-											   conn(conn), 
+    RGWLFUDAPolicy(std::shared_ptr<cpp_redis::client[]>& conn, rgw::cache::CacheDriver* cacheDriver) : RGWCachePolicy(), 
+    //LFUDAPolicy(std::shared_ptr<connection>& conn, rgw::cache::CacheDriver* cacheDriver) : CachePolicy(), 
+											   //io(io_context),
+											   client_conn(conn),
 											   cacheDriver(cacheDriver)
     {
-      dir = new BlockDirectory{conn};
+      //dir = new BlockDirectory{conn};
+      dir = new RGWBlockDirectory{conn};
     }
-    ~LFUDAPolicy() {
-      rthread_stop();
+    ~RGWLFUDAPolicy() {
+      //rthread_stop();
       //shutdown();
       delete dir;
     } 
@@ -161,7 +180,7 @@ class LFUDAPolicy : public CachePolicy {
     //void shutdown();
 };
 
-class LRUPolicy : public CachePolicy {
+class RGWLRUPolicy : public RGWCachePolicy {
   private:
     typedef boost::intrusive::list<Entry> List;
 
@@ -174,7 +193,7 @@ class LRUPolicy : public CachePolicy {
     bool _erase(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y);
 
   public:
-    LRUPolicy(rgw::cache::CacheDriver* cacheDriver) : cacheDriver{cacheDriver} {}
+    RGWLRUPolicy(rgw::cache::CacheDriver* cacheDriver) : cacheDriver{cacheDriver} {}
 
     virtual int init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver* _driver) override { return 0; } 
     virtual int exist_key(std::string key) override;
@@ -186,25 +205,26 @@ class LRUPolicy : public CachePolicy {
     virtual void cleaning(const DoutPrefixProvider* dpp) override {}
 };
 
-class PolicyDriver {
+class RGWPolicyDriver {
   private:
     std::string policyName;
-    CachePolicy* cachePolicy;
+    RGWCachePolicy* cachePolicy;
 
   public:
-    PolicyDriver(std::shared_ptr<connection>& conn, rgw::cache::CacheDriver* cacheDriver, std::string _policyName) : policyName(_policyName) 
+    RGWPolicyDriver(std::shared_ptr<cpp_redis::client[]>& conn, rgw::cache::CacheDriver* cacheDriver, std::string _policyName) : policyName(_policyName) 
     {
       if (policyName == "lfuda") {
-	cachePolicy = new LFUDAPolicy(conn, cacheDriver);
+	cachePolicy = new RGWLFUDAPolicy(conn, cacheDriver);
+	//cachePolicy = new LFUDAPolicy(io_context, cacheDriver);
       } else if (policyName == "lru") {
-	cachePolicy = new LRUPolicy(cacheDriver);
+	cachePolicy = new RGWLRUPolicy(cacheDriver);
       }
     }
-    ~PolicyDriver() {
+    ~RGWPolicyDriver() {
       delete cachePolicy;
     }
 
-    CachePolicy* get_cache_policy() { return cachePolicy; }
+    RGWCachePolicy* get_cache_policy() { return cachePolicy; }
     std::string get_policy_name() { return policyName; }
 };
 
