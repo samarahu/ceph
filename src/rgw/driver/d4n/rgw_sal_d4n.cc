@@ -1968,9 +1968,13 @@ int D4NFilterObject::D4NFilterDeleteOp::delete_obj(const DoutPrefixProvider* dpp
     std::string version = source->get_object_version();
 
     if (objDirty) { // head object dirty flag represents object dirty flag
-      policy_prefix.erase(0, 2); // remove "D_" prefix from policy key since the policy keys do not hold this information
-      if (!source->driver->get_policy_driver()->get_cache_policy()->invalidate_dirty_object(dpp, policy_prefix)) {
-        objDirty = false;
+      //for versioned buckets, for a simple delete we need to create a delete marker (and not invalidate/delete any object)
+      if (!source->get_bucket()->versioned() || (block.cacheObj.objName != source->get_name())) {
+        policy_prefix.erase(0, 2); // remove "D_" prefix from policy key since the policy keys do not hold this information
+        ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): calling invalidate_dirty_object for: " << head_oid_in_cache << dendl;
+        if (!source->driver->get_policy_driver()->get_cache_policy()->invalidate_dirty_object(dpp, policy_prefix)) {
+          objDirty = false;
+        }
       }
     }    
 
