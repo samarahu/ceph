@@ -1257,23 +1257,25 @@ int D4NFilterObject::D4NFilterReadOp::flush(const DoutPrefixProvider* dpp, rgw::
 
     if (client_cb) {
       if (this->first_block == true){
-        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " before handle_data" << dendl;
+        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " before handle_data offset: " << offset << dendl;
         //int r = client_cb->handle_data(bl, read_ofs, bl.length()-read_ofs);
         int r = client_cb->handle_data(bl, 0, bl.length());
-        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " after handle_data" << dendl;
+        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " after handle_data offset: " << offset << dendl;
 
         set_first_block(false);
         offset += bl.length();
         completed.pop_front_and_dispose(std::default_delete<rgw::AioResultEntry>{});
+
 
         if (r < 0) {
           return r;
         }
       }
       else{
-        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " before handle_data" << dendl;
+        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " before handle_data offset: " << offset << dendl;
         int r = client_cb->handle_data(bl, 0, bl.length());
-        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " after handle_data" << dendl;
+        ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " after handle_data offset: " << offset << dendl;
+
 
         offset += bl.length();
         completed.pop_front_and_dispose(std::default_delete<rgw::AioResultEntry>{});
@@ -1283,7 +1285,9 @@ int D4NFilterObject::D4NFilterReadOp::flush(const DoutPrefixProvider* dpp, rgw::
         }
       }
     }
+    ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " offset is: " << tmp_offset << dendl;
 
+    std::string oid_in_cache;
     auto it = blocks_info.find(tmp_offset);
     if (it != blocks_info.end()) {
       std::string version = source->get_object_version();
@@ -1291,18 +1295,30 @@ int D4NFilterObject::D4NFilterReadOp::flush(const DoutPrefixProvider* dpp, rgw::
       if (version.empty()) {
         version = source->get_instance();
       }
+      ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " offset is: " << tmp_offset << dendl;
       std::pair<uint64_t, uint64_t> ofs_len_pair = it->second;
       uint64_t ofs = ofs_len_pair.first;
       uint64_t len = ofs_len_pair.second;
       bool dirty = source->get_object_dirty();
       time_t creationTime = ceph::real_clock::to_time_t(source->get_mtime());
 
-      std::string oid_in_cache = prefix + "_" + std::to_string(ofs) + "_" + std::to_string(len);
+      //key = prefix + "_" + std::to_string(tmp_offset) + "_" + std::to_string(len) ;
+      //ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " KEY IS: " << key << dendl;
+
+      oid_in_cache = prefix + "_" + std::to_string(ofs) + "_" + std::to_string(len);
+      ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " OID_IN_CACHE is: " << oid_in_cache << dendl;
 
       source->driver->get_policy_driver()->get_cache_policy()->update(dpp, oid_in_cache, ofs, len, version, dirty, creationTime,  source->get_bucket()->get_owner(), y);
+      ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " offset is: " << tmp_offset << dendl;
       blocks_info.erase(it);
+      ldpp_dout(dpp, 20) << "AMIN:DEBUG" << __func__ << "(): " <<  __LINE__ << " offset is: " << tmp_offset << dendl;
     } else {
       ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << " offset not found: " << tmp_offset << dendl;
+    }
+
+    //setting read_flag = 0
+    if (source->driver->get_policy_driver()->get_cache_policy()->exist_key(oid_in_cache)) {
+      source->driver->get_policy_driver()->get_cache_policy()->set_read_flag(dpp, oid_in_cache, 0);
     }
   
   }
@@ -1687,11 +1703,18 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
       break;
     }
 
+
     std::string cacheLocation;
     ceph::bufferlist bl;
 
     if (cached_local == 1){ //local cache
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " for ofs: " << ofs << " Local Cache" <<  dendl;
+
+      //setting read_flag = 1 to prevent block's eviction during read
+      if (source->driver->get_policy_driver()->get_cache_policy()->exist_key(key)) {
+        source->driver->get_policy_driver()->get_cache_policy()->set_read_flag(dpp, key, 1);
+      }
+
       auto completed = source->driver->get_cache_driver()->get_async(dpp, y, aio.get(), key, read_ofs, len_to_read, cost, id);
       this->blocks_info.insert(std::make_pair(id, std::make_pair(adjusted_start_ofs+read_ofs, part_len)));
       ret = flush(dpp, std::move(completed), y);
@@ -1713,10 +1736,17 @@ int D4NFilterObject::D4NFilterReadOp::iterate(const DoutPrefixProvider* dpp, int
             last_adjusted_ofs = adjusted_start_ofs - obj_max_req_size;
         }
         drain(dpp, y);
+
+        //setting read_flag = 0
+        if (source->driver->get_policy_driver()->get_cache_policy()->exist_key(key)) {
+          source->driver->get_policy_driver()->get_cache_policy()->set_read_flag(dpp, key, 0);
+        }
+
         ldpp_dout(dpp, 20) << "D4NFilterObject::iterate:: " << __func__ << "(): Error: failed to flush, r= " << ret << dendl;
         return ret;
       }
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " start_part_num is: " << start_part_num <<  dendl;
+
     }
     else if (cached_local == 2){ //local lsvd
       ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " <<  __LINE__ << " for ofs: " << ofs << " Local LSVD" <<  dendl;

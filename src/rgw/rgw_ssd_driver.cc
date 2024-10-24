@@ -21,8 +21,10 @@ int SSDDriver::initialize(const DoutPrefixProvider* dpp)
       partition_info.location += "/";
     }
 
-    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " partition is: " << partition_info.location << dendl;
-    this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    //ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " partition is: " << partition_info.location << dendl;
+    //this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
 
     try {
         if (efs::exists(partition_info.location)) {
@@ -89,9 +91,12 @@ int SSDDriver::initialize(const DoutPrefixProvider* dpp)
     #endif
 
     //currently partition_info.size is unused
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
-    this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
+    space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    //AMIN
+    //this->free_space = dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size;
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " FREE SPACE is: " << free_space << dendl;
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " rgw_d4n_l1_datacache_size is: " << dpp->get_cct()->_conf->rgw_d4n_l1_datacache_size << dendl;
 
     return 0;
 }
@@ -99,6 +104,12 @@ int SSDDriver::initialize(const DoutPrefixProvider* dpp)
 int SSDDriver::put(const DoutPrefixProvider* dpp, const std::string& key, const bufferlist& bl, uint64_t len, const rgw::sal::Attrs& attrs, optional_yield y)
 {
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): key=" << key << dendl;
+
+    if (this->free_space < len){
+	ldpp_dout(dpp, 10) << "SSDCache: " << __func__ << "(): No Space available!" << dendl;
+	return -1;
+    }	
+
     boost::system::error_code ec;
     if (y) {
         using namespace boost::asio;
@@ -111,7 +122,10 @@ int SSDDriver::put(const DoutPrefixProvider* dpp, const std::string& key, const 
         return ec.value();
     }
 
-    this->free_space -= len;
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    //this->free_space -= len;
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " FREE SPACE is: " << free_space << dendl;
     return 0;
 }
 
@@ -189,9 +203,9 @@ int SSDDriver::append_data(const DoutPrefixProvider* dpp, const::std::string& ke
     }
 
     //AMIN
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
-    this->free_space -= nbytes;
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    //this->free_space -= nbytes;
 
     return 0;
 }
@@ -340,9 +354,9 @@ int SSDDriver::delete_data(const DoutPrefixProvider* dpp, const::std::string& ke
     }
 
     //AMIN
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
-    this->free_space += size;
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    //this->free_space += size;
 
     return 0;
 }
@@ -498,15 +512,17 @@ int SSDDriver::update_attrs(const DoutPrefixProvider* dpp, const std::string& ke
 
     
     //AMIN
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    /*
     uint64_t after_size = efs::file_size(filePath);
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
     if (after_size > prev_size){
       this->free_space -= (after_size - prev_size);
     }
     else if (after_size < prev_size){
       this->free_space += (prev_size - after_size);
     }
+    */
 
     return 0;
 }
@@ -527,15 +543,17 @@ int SSDDriver::delete_attrs(const DoutPrefixProvider* dpp, const std::string& ke
     }
 
     //AMIN
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    /*
     uint64_t after_size = efs::file_size(filePath);
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
     if (after_size > prev_size){
       this->free_space -= (after_size - prev_size);
     }
     else if (after_size < prev_size){
       this->free_space += (prev_size - after_size);
     }
+    */
 
     return 0;
 }
@@ -593,17 +611,18 @@ int SSDDriver::set_attrs(const DoutPrefixProvider* dpp, const std::string& key, 
     }
 
     //AMIN
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    /*
     uint64_t after_size = efs::file_size(filePath);
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
     if (after_size > prev_size){
       this->free_space -= (after_size - prev_size);
     }
     else if (after_size < prev_size){
       this->free_space += (prev_size - after_size);
     }
-
-
+    */
+ 
     return 0;
 }
 
@@ -654,16 +673,17 @@ int SSDDriver::set_attr(const DoutPrefixProvider* dpp, const std::string& key, c
     }
 
     //AMIN
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    /*
     uint64_t after_size = efs::file_size(filePath);
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
     if (after_size > prev_size){
       this->free_space -= (after_size - prev_size);
     }
     else if (after_size < prev_size){
       this->free_space += (prev_size - after_size);
     }
-
+    */
 
     return 0;
 }
@@ -682,18 +702,24 @@ int SSDDriver::delete_attr(const DoutPrefixProvider* dpp, const std::string& key
     }
 
     //AMIN
+    efs::space_info space = efs::space(partition_info.location);
+    this->free_space = space.available;
+    /*
     uint64_t after_size = efs::file_size(filePath);
-    //efs::space_info space = efs::space(partition_info.location);
-    //this->free_space = space.available;
     if (after_size > prev_size){
       this->free_space -= (after_size - prev_size);
     }
     else if (after_size < prev_size){
       this->free_space += (prev_size - after_size);
     }
-
+    */
 
     return 0;
+}
+
+uint64_t SSDDriver::get_free_space(const DoutPrefixProvider* dpp){
+    efs::space_info space = efs::space(partition_info.location);
+    return space.available;
 }
 
 } } // namespace rgw::cache

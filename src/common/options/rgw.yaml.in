@@ -3612,12 +3612,14 @@ options:
   - rgw
   with_legacy: true
 - name: rgw_d4n_l1_datacache_size
-  type: size
+  type: int
   level: advanced
   desc: datacache maximum size on disk in bytes
-  default: 30_G
+  default: 10737418240
   services:
   - rgw
+  flags:
+  - startup
   with_legacy: true
 - name: rgw_d4n_l1_evict_cache_on_start
   type: bool

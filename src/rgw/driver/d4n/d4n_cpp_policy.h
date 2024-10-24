@@ -34,6 +34,7 @@ class RGWCachePolicy {
       bool dirty;
       time_t creationTime;
       rgw_user user;
+      int read_flag = 0;
       Entry(std::string& key, uint64_t offset, uint64_t len, std::string version, bool dirty, time_t creationTime, rgw_user user) : key(key), offset(offset), 
                                                                                      len(len), version(version), dirty(dirty), creationTime(creationTime), user(user) {}
     };
@@ -76,6 +77,8 @@ class RGWCachePolicy {
     virtual bool erase(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) = 0;
     virtual bool eraseObj(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) = 0;
     virtual void cleaning(const DoutPrefixProvider* dpp) = 0;
+    virtual void set_read_flag(const DoutPrefixProvider* dpp, std::string key, int value) = 0;
+    virtual int get_read_flag(const DoutPrefixProvider* dpp, std::string key) = 0;
 };
 
 class RGWLFUDAPolicy : public RGWCachePolicy {
@@ -176,6 +179,8 @@ class RGWLFUDAPolicy : public RGWCachePolicy {
     virtual bool erase(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) override;
     virtual bool eraseObj(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) override;
     virtual void cleaning(const DoutPrefixProvider* dpp) override;
+    virtual void set_read_flag(const DoutPrefixProvider* dpp, std::string key, int value) override;
+    virtual int get_read_flag(const DoutPrefixProvider* dpp, std::string key) override;
     void save_y(optional_yield y) { this->y = y; }
     //void shutdown();
 };
@@ -203,6 +208,8 @@ class RGWLRUPolicy : public RGWCachePolicy {
     virtual bool erase(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) override;
     virtual bool eraseObj(const DoutPrefixProvider* dpp, const std::string& key, optional_yield y) override;
     virtual void cleaning(const DoutPrefixProvider* dpp) override {}
+    virtual void set_read_flag(const DoutPrefixProvider* dpp, std::string key, int value) override {}
+    virtual int get_read_flag(const DoutPrefixProvider* dpp, std::string key) override {return 0;}
 };
 
 class RGWPolicyDriver {

@@ -631,11 +631,13 @@ int RGWBlockDirectory::remove_host(CacheBlockCpp* block, std::string value, opti
       return 0;
     }
 
+    ldout(cct,20) << __func__ << ": " << __LINE__ << " Prev blockHosts value is: " << old_val << dendl;
+    ldout(cct,20) << __func__ << ": " << __LINE__ << " value to be deleted is: " << value << dendl;
+
     if (old_val.find(value) == std::string::npos){
       return 0; //no host to be removed
     }
 
-    ldout(cct,20) << __func__ << ": " << __LINE__ << " Prev blockHosts value is: " << old_val << dendl;
     size_t host_loc = old_val.find(value);
     old_val.erase(host_loc, value.length()); 
     if (old_val.find('_') == 0)
@@ -651,10 +653,14 @@ int RGWBlockDirectory::remove_host(CacheBlockCpp* block, std::string value, opti
     client_conn[client_index].sync_commit(std::chrono::milliseconds(300));	  
   }
 
+  ldout(cct,20) << __func__ << ": " << __LINE__ << " Result is: " << result << dendl;
+  return result;
+  /*
   if (result > 0) //updated values
     return 0;
   else
     return -1;
+  */
 }
 
 
@@ -933,8 +939,9 @@ int RGWObjectDirectory::get(CacheObjectCpp *ptr, optional_yield y)
 
 int RGWBlockDirectory::get(CacheBlockCpp *ptr, optional_yield y)
 {
+  ldout(cct,20) << __func__ << "(): " << __LINE__ << dendl;
   std::string key = buildIndex(ptr);
-  ldout(cct,10) << __func__ << " object in func getValue "<< key << dendl;
+  ldout(cct,20) << __func__ << "(): " << __LINE__ << " key is: " << key << dendl;
   /*
   findClient(key, &client);
   if (!(client.is_connected())){

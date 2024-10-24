@@ -30,7 +30,7 @@ public:
 
   /* Partition */
   virtual Partition get_current_partition_info(const DoutPrefixProvider* dpp) override { return partition_info; }
-  virtual uint64_t get_free_space(const DoutPrefixProvider* dpp) override { return free_space; }
+  virtual uint64_t get_free_space(const DoutPrefixProvider* dpp) override;
   void set_free_space(const DoutPrefixProvider* dpp, uint64_t free_space) { this->free_space = free_space; }
 
 private:

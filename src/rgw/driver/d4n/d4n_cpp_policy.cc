@@ -226,7 +226,7 @@ int RGWLFUDAPolicy::set(std::string key, std::string field, std::string value)
   });
 
   client_conn[client_index].sync_commit(std::chrono::milliseconds(300));
-  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " RESULT is: " << result << dendl;
 
   return result;
 }
@@ -261,11 +261,11 @@ std::string RGWLFUDAPolicy::get(std::string key, std::string field)
 
 
 int RGWLFUDAPolicy::init(CephContext *_cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver *_driver) {
-  //dir->init(cct, dpp);
   driver = _driver;
   cct = _cct;
   int result = 0;
   connectClient();
+  dir->init(cct);
 
   std::string p_name = "lfuda";
   std::string f_name = "age";
@@ -277,9 +277,9 @@ int RGWLFUDAPolicy::init(CephContext *_cct, const DoutPrefixProvider* dpp, asio:
   f_name = "minLocalWeights_sum";
   result = set(p_name, f_name, std::to_string(weightSum)); // New cache node will always have the minimum average weight 
   f_name = "minLocalWeights_size";
-  result *= set(p_name, f_name, std::to_string(entries_map.size()));
+  result += set(p_name, f_name, std::to_string(entries_map.size()));
   f_name = "minLocalWeights_address";
-  result *= set(p_name, f_name, dpp->get_cct()->_conf->rgw_local_cache_address);
+  result += set(p_name, f_name, dpp->get_cct()->_conf->rgw_local_cache_address);
   
   // Spawn lfuda policy thread
   lfuda_t = std::thread(&RGWLFUDAPolicy::redis_sync, this, dpp, null_yield);
@@ -331,16 +331,16 @@ int RGWLFUDAPolicy::age_sync(const DoutPrefixProvider* dpp, optional_yield y) {
 
   if (age > std::stoi(result) || result.empty()) { /* Set new maximum age */
   ldpp_dout(dpp, 10) << "AMIN " << __func__ << " " << __LINE__ << dendl;
-    if (set(p_name, f_name, std::to_string(age))){
+    if (set(p_name, f_name, std::to_string(age)) == 0){
   ldpp_dout(dpp, 10) << "AMIN " << __func__ << " " << __LINE__ << dendl;
       return 0;
     }
     else
       return -1;
   } else {
-  ldpp_dout(dpp, 10) << "AMIN " << __func__ << " " << __LINE__ << dendl;
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
     age = std::stoi(result);
-  ldpp_dout(dpp, 10) << "AMIN " << __func__ << " " << __LINE__ << dendl;
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
     return 0;
   }
 }
@@ -349,6 +349,7 @@ int RGWLFUDAPolicy::local_weight_sync(const DoutPrefixProvider* dpp, optional_yi
   int result1 = 0, flag = 0; 
   int result2 = 0; 
    
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
   std::string p_name = "lfuda";
   std::string f_name;
 
@@ -360,19 +361,22 @@ int RGWLFUDAPolicy::local_weight_sync(const DoutPrefixProvider* dpp, optional_yi
 
     f_name = "minLocalWeights_size";
     resp1 = get(p_name, f_name);
+    ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
 	
     float minAvgWeight = std::stof(resp0) / std::stof(resp1);
 
     if ((static_cast<float>(weightSum) / static_cast<float>(entries_map.size())) < minAvgWeight) { /* Set new minimum weight */
+      ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
       flag = 1;
+      p_name = "lfuda";
       f_name = "minLocalWeights_sum";
       result1 = set(p_name, f_name, std::to_string(weightSum));
 
       f_name = "minLocalWeights_size";
-      result1 *= set(p_name, f_name, std::to_string(entries_map.size()));
+      result1 += set(p_name, f_name, std::to_string(entries_map.size()));
 
       f_name = "minLocalWeights_address";
-      result1 *= set(p_name, f_name, dpp->get_cct()->_conf->rgw_local_cache_address);
+      result1 += set(p_name, f_name, dpp->get_cct()->_conf->rgw_local_cache_address);
 
     } else {
       weightSum = std::stoi(resp0);
@@ -380,17 +384,21 @@ int RGWLFUDAPolicy::local_weight_sync(const DoutPrefixProvider* dpp, optional_yi
     }
   }
 
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << dendl;
   p_name = dpp->get_cct()->_conf->rgw_local_cache_address;
   f_name = "avgLocalWeight_sum";  
   result2 = set(p_name, f_name, std::to_string(weightSum));
 
   f_name = "avgLocalWeight_size";
-  result2 *= set(p_name, f_name, std::to_string(entries_map.size()));
+  result2 += set(p_name, f_name, std::to_string(entries_map.size()));
   
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << " flag is: " << flag << dendl;
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << " result1 is: " << result1 << dendl;
+  ldpp_dout(dpp, 20) << "AMIN " << __func__ << " " << __LINE__ << " result2 is: " << result2 << dendl;
   if (flag == 0)
     return result2;
   else
-    return result1*result2; // the corret value should be 1, 0 means at least one value is not set.
+    return result1+result2;
 }
 
 void RGWLFUDAPolicy::redis_sync(const DoutPrefixProvider* dpp, optional_yield y) {
@@ -399,12 +407,12 @@ void RGWLFUDAPolicy::redis_sync(const DoutPrefixProvider* dpp, optional_yield y)
   while(true){
     /* Update age */
     if (int ret = age_sync(dpp, y) < 0) {
-      ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "() ERROR: ret=" << ret << dendl;
+      ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): " << __LINE__ << " ERROR: ret=" << ret << dendl;
     }
     
     /* Update minimum local weight sum */
-    if (int ret = local_weight_sync(dpp, y) <= 0) {
-      ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "() ERROR: ret=" << ret << dendl;
+    if (int ret = local_weight_sync(dpp, y) < 0) {
+      ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): " << __LINE__ << " ERROR: ret=" << ret << dendl;
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(interval));
@@ -526,6 +534,15 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
       delete victim;
       return -ENOENT;
     }
+    else{//block is getting read, increase it in heap and do not evict it.
+      if (it->second->read_flag == 1){
+	it->second->localWeight += victim->globalWeight;
+        (*it->second->handle)->localWeight = it->second->localWeight;
+	entries_heap.increase(it->second->handle);
+        delete victim;
+	continue;
+      }
+    }
 
     //int avgWeight = weightSum / entries_map.size();
     int avgWeight;
@@ -539,6 +556,7 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
     ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " remote cache address is " << remoteCacheAddress << dendl;
 
     if (victim->hostsList.size() == 1 && victim->hostsList[0] == dpp->get_cct()->_conf->rgw_local_cache_address) { /* Last copy */
+      ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
       if (victim->globalWeight) {
 	it->second->localWeight += victim->globalWeight;
         (*it->second->handle)->localWeight = it->second->localWeight;
@@ -557,6 +575,7 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
       }
 
       if (it->second->localWeight > avgWeight) {
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << dendl;
 	// TODO: push victim block to remote cache
 	// add remote cache host to host list
 	bufferlist out_bl;
@@ -564,7 +583,7 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
 
 	std::string remoteKey = key;
 	if (it->second->dirty == true)
-	  remoteKey = "D_"+key;
+	  remoteKey = "D_"+key; //TODO: AMIN: we should not delete dirty data. it should be cleaned first.
 	
 	/*
         ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " size is " << size << dendl;
@@ -604,7 +623,7 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
     delete victim;
 
     ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
-    if (int ret = cacheDriver->del(dpp, key, y) < 0) 
+    if (int ret = cacheDriver->delete_data(dpp, key, y) < 0) 
       return ret;
 
     ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): Block " << key << " has been evicted." << dendl;
@@ -618,12 +637,13 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
     freeSpace = cacheDriver->get_free_space(dpp);
   }
   
-  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " free space is: " << freeSpace << dendl;
   return 0;
 }
 
 void RGWLFUDAPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64_t offset, uint64_t len, std::string version, bool dirty, time_t creationTime, const rgw_user user, optional_yield y)
 {
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
   using handle_type = boost::heap::fibonacci_heap<LFUDAEntry*, boost::heap::compare<EntryComparator<LFUDAEntry>>>::handle_type;
   const std::lock_guard l(lfuda_lock);
   int localWeight = age;
@@ -631,24 +651,31 @@ void RGWLFUDAPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uin
   if (entry != nullptr) { 
     localWeight = entry->localWeight + age;
   }  
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
 
   erase(dpp, key, y);
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
  
   LFUDAEntry *e = new LFUDAEntry(key, offset, len, version, dirty, creationTime, user, localWeight);
   if (offset != 0 || len != 0){ //not a head object 
     handle_type handle = entries_heap.push(e);
     e->set_handle(handle);
   }
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
   entries_map.emplace(key, e);
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
 
   std::string oid_in_cache = key;
   if (dirty == true)
     oid_in_cache = "D_"+key;
 
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
   if (cacheDriver->set_attr(dpp, oid_in_cache, "user.rgw.localWeight", std::to_string(localWeight), y) < 0) 
     ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): CacheDriver set_attr method failed." << dendl;
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
 
   weightSum += ((localWeight < 0) ? 0 : localWeight);
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ <<  dendl;
 }
 
 void RGWLFUDAPolicy::updateObj(const DoutPrefixProvider* dpp, std::string& key, std::string version, bool dirty, uint64_t size, time_t creationTime, const rgw_user user, std::string& etag, optional_yield y)
@@ -690,6 +717,30 @@ bool RGWLFUDAPolicy::eraseObj(const DoutPrefixProvider* dpp, const std::string& 
 
   return true;
 }
+
+void RGWLFUDAPolicy::set_read_flag(const DoutPrefixProvider* dpp, std::string key, int value)
+{
+  auto it = entries_map.find(key);
+  if (it == entries_map.end()) {
+    ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key: " << key  << " does not exist!" << dendl;
+    return;
+  }
+  
+  it->second->read_flag = value;
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key: " << key  << " read flag is set to: " << value << dendl;
+  return;
+}
+
+int RGWLFUDAPolicy::get_read_flag(const DoutPrefixProvider* dpp, std::string key)
+{
+  auto it = entries_map.find(key);
+  if (it == entries_map.end()) {
+    return -1;
+  }
+  
+  return it->second->read_flag;
+}
+
 
 void RGWLFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 {
