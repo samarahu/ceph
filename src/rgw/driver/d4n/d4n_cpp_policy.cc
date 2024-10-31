@@ -534,13 +534,19 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
       delete victim;
       return -ENOENT;
     }
-    else{//block is getting read, increase it in heap and do not evict it.
+    else{//victim block is getting read, no suitable block to evict
       if (it->second->read_flag == 1){
-	it->second->localWeight += victim->globalWeight;
-        (*it->second->handle)->localWeight = it->second->localWeight;
+ 	/*
+	//it->second->localWeight += victim->globalWeight;
+        (*it->second->handle)->localWeight += 1; //it->second->localWeight;
 	entries_heap.increase(it->second->handle);
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " localWeight: " << (*(entries_map.find(key))->second->handle)->localWeight << dendl;
+        ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " top is: " << entries_heap.top()->key << dendl;
         delete victim;
 	continue;
+	*/
+        delete victim;
+        return -ENOENT;
       }
     }
 
@@ -618,6 +624,39 @@ int RGWLFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optio
       delete victim;
       return ret;
     }
+
+
+/* FIXME: AMIN Remove, just for testing */
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+  CacheBlockCpp* victim1 = new CacheBlockCpp();
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+  victim1->cacheObj.bucketName = victim->cacheObj.bucketName;
+  victim1->cacheObj.objName = victim->cacheObj.objName;
+  victim1->blockID = victim->blockID;
+  victim1->size = victim->size;
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+
+  if (int ret = dir->get(victim1, y) < 0) {
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " FAILED!" << dendl;
+    delete victim1;
+    return ret;
+  }
+
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << " HOST SIZE is : " << victim1->hostsList.size() << dendl;
+  if (victim1->hostsList.size() > 0){
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " TEST: KEY: " << victim1->blockID << " hosts: " << victim1->hostsList[0] << dendl;
+  }
+  else{
+    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " there is NO HOST!" << dendl;
+  }
+  
+  delete victim1;
+  ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
+
+/* END FIXME */
+
+
+
 
     ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__  << dendl;
     delete victim;

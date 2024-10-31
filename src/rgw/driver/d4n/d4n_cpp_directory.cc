@@ -96,6 +96,7 @@ void RGWBlockDirectory::connectClient(){
 int RGWObjectDirectory::findClient(std::string key){
   int slot = 0;
   ldout(cct,10) <<__func__<<": " << __LINE__ <<  dendl;
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   slot = hash_slot(key.c_str(), key.size());
   int dirMasterCount = cct->_conf->rgw_directory_master_count;
   int slotQuota = 16384/dirMasterCount; 
@@ -125,6 +126,7 @@ int RGWObjectDirectory::findClient(std::string key){
 int RGWBlockDirectory::findClient(std::string key){
   int slot = 0;
   ldout(cct,10) <<__func__<<": " << __LINE__ <<  dendl;
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   slot = hash_slot(key.c_str(), key.size());
   int dirMasterCount = cct->_conf->rgw_directory_master_count;
   int slotQuota = 16384/dirMasterCount; 
@@ -225,6 +227,7 @@ int RGWBlockDirectory::exist_key(CacheBlockCpp *ptr)
 {
   int result = 0;
   std::string key = buildIndex(ptr);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
 
   int client_index = findClient(key);
   if (client_index < 0){
@@ -380,6 +383,7 @@ int RGWBlockDirectory::set(CacheBlockCpp *ptr, optional_yield y)
   }*/
 
   ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " key is: " << key << dendl;
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " blockID is: " << ptr->blockID << dendl;
 
   int client_index = findClient(key);
   if (client_index < 0){
@@ -505,6 +509,7 @@ int RGWObjectDirectory::update_field(CacheObjectCpp *ptr, std::string field, std
 
   //creating the index based on bucket_name, obj_name, and chunk_id
   std::string key = buildIndex(ptr);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   /*findClient(key, &client);
   if (!(client.is_connected())){
 	return -1;
@@ -583,6 +588,7 @@ int RGWBlockDirectory::remove_host(CacheBlockCpp* block, std::string value, opti
 {
   std::string field = "blockHosts";
   std::string key = buildIndex(block);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
 
   int client_index = findClient(key);
   if (client_index < 0){
@@ -635,6 +641,7 @@ int RGWBlockDirectory::remove_host(CacheBlockCpp* block, std::string value, opti
     ldout(cct,20) << __func__ << ": " << __LINE__ << " value to be deleted is: " << value << dendl;
 
     if (old_val.find(value) == std::string::npos){
+      ldout(cct,10) <<__func__<<": " << __LINE__ << " key: " << key  << " No host to be removed! " <<  dendl;
       return 0; //no host to be removed
     }
 
@@ -671,10 +678,12 @@ int RGWBlockDirectory::update_field(CacheBlockCpp *ptr, std::string field, std::
 
   //creating the index based on bucket_name, obj_name, and chunk_id
   std::string key = buildIndex(ptr);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   /*findClient(key, &client);
   if (!(client.is_connected())){
 	return -1;
   }*/
+  ldout(cct, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << " blockID is: " << ptr->blockID << dendl;
 
   int client_index = findClient(key);
   if (client_index < 0){
@@ -749,6 +758,7 @@ int RGWObjectDirectory::del(CacheObjectCpp *ptr, optional_yield y)
   int result = 0;
   std::vector<std::string> keys;
   std::string key = buildIndex(ptr);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   keys.push_back(key);
   /*findClient(key, &client);
   if (!(client.is_connected())){
@@ -786,6 +796,7 @@ int RGWBlockDirectory::del(CacheBlockCpp *ptr, optional_yield y)
   int result = 0;
   std::vector<std::string> keys;
   std::string key = buildIndex(ptr);
+  ldout(cct,10) <<__func__<<": " << __LINE__ << " key is: " << key <<  dendl;
   keys.push_back(key);
   /*findClient(key, &client);
   if (!(client.is_connected())){
@@ -1022,6 +1033,7 @@ int RGWBlockDirectory::get(CacheBlockCpp *ptr, optional_yield y)
 
 	client_conn[client_index].sync_commit(std::chrono::milliseconds(300));
 	  
+        ldout(cct,10) << __func__ << ": " << __LINE__<< ": blockID: "<< blockID << " blockHosts: " << blockHosts << dendl;
 	std::stringstream sloction(blockHosts);
 	std::string tmp;
 	
