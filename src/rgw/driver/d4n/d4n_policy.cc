@@ -854,7 +854,6 @@ void LFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 	}
 	rgw::d4n::CacheBlock block;
 	block.cacheObj.bucketName = c_obj->get_bucket()->get_bucket_id();
-        std::cout << "bucket name: " << block.cacheObj.bucketName  << std::endl;
 	block.cacheObj.objName = c_obj->get_name();
 	block.size = 0;
 	block.blockID = 0;
