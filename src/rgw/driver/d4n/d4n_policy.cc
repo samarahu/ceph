@@ -144,10 +144,10 @@ int LFUDAPolicy::getMinAvgWeight(const DoutPrefixProvider* dpp, int& minAvgWeigh
   ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() resp<2> is " << std::get<2>(resp).value() << dendl;
 
   if (std::stoi(std::get<1>(resp).value()) > 0)
-    *minAvgWeight =  std::stoi(std::get<0>(resp).value()) / std::stoi(std::get<1>(resp).value());
+    minAvgWeight =  std::stoi(std::get<0>(resp).value()) / std::stoi(std::get<1>(resp).value());
   else
-    *minAvgWeight = 0; 
-  *cache_address =  std::get<2>(resp).value();
+    minAvgWeight = 0; 
+  cache_address =  std::get<2>(resp).value();
   ldpp_dout(dpp, 10) << "AMIN " << __func__ << "() cache_address is " << cache_address << dendl;
   return 0;
 }

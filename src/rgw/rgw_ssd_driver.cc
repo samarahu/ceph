@@ -345,8 +345,12 @@ int SSDDriver::delete_data(const DoutPrefixProvider* dpp, const::std::string& ke
 {
     std::string location = partition_info.location + key;
     efs::path filePath = location;
-    uint64_t size = efs::file_size(filePath);
-
+    uint64_t size;
+    if (efs::exists(filePath)) {
+      size = efs::file_size(filePath);
+    } else {
+      return -ENOENT;
+    }
 
     if (!efs::remove(location)) {
         ldpp_dout(dpp, 0) << "ERROR: delete_data::remove has failed to remove the file: " << location << dendl;
@@ -661,7 +665,7 @@ int SSDDriver::set_attr(const DoutPrefixProvider* dpp, const std::string& key, c
 {
     std::string location = partition_info.location + key;
     efs::path filePath = location;
-    uint64_t prev_size = efs::file_size(filePath);
+    //uint64_t prev_size = efs::file_size(filePath);
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): location=" << location << dendl;
 
     ldpp_dout(dpp, 20) << "SSDCache: " << __func__ << "(): set_attr: key: " << attr_name << " val: " << attr_val << dendl;

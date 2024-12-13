@@ -408,14 +408,16 @@ void RGWLFUDAPolicy::redis_sync(const DoutPrefixProvider* dpp, optional_yield y)
     /* Update age */
     if (int ret = age_sync(dpp, y) < 0) {
       ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): " << __LINE__ << " ERROR: ret=" << ret << dendl;
+      return;
     }
     
     /* Update minimum local weight sum */
     if (int ret = local_weight_sync(dpp, y) < 0) {
       ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): " << __LINE__ << " ERROR: ret=" << ret << dendl;
+      return;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+    std::this_thread::sleep_for(std::chrono::seconds(interval));
   }
 }
 
@@ -794,7 +796,7 @@ void RGWLFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
     int count = 0;
 
     for (auto it = o_entries_map.begin(); it != o_entries_map.end(); it++){
-      if ((it->second->dirty == true) && (std::difftime(time(NULL), it->second->creationTime) > interval)){ //if block is dirty and written more than interval seconds ago
+      if ((it->second->dirty == true) && (std::difftime(time(NULL), it->second->creationTime) > interval / 1000)){ //if block is dirty and written more than interval seconds ago
 	name = it->first;
 	rgw_user c_rgw_user = it->second->user;
 
@@ -890,14 +892,17 @@ void RGWLFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 
 	  //FIXME: AMIN: this is for testing remote cache.
 	  //comment or remove it afterwards
-	  /*
-	  std::string  remoteCacheAddress = dpp->get_cct()->_conf->rgw_remote_cache_address;
-	  if (int ret = sendRemote(dpp, &block, remoteCacheAddress, oid_in_cache, &dataCP, y) < 0){
-      	    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << ": sendRemote returned ret=" << ret << dendl;
-	  }
-	  */
 	  
-
+          int ret = -1;
+	  std::string remoteCacheAddress = dpp->get_cct()->_conf->rgw_remote_cache_address;
+	  if (ret = sendRemote(dpp, &block, remoteCacheAddress, oid_in_cache, &dataCP, y) < 0){
+      	    ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << ": sendRemote returned ret=" << ret << dendl;
+	  } else {
+            if ((ret = dir->update_field(&block, "blockHosts", remoteCacheAddress, null_yield) < 0)) {
+	      ldpp_dout(dpp, 20) << "AMIN: " << __func__ << "(): " << __LINE__ << ": update_field returned ret=" << ret << dendl;
+            }
+          }
+         
     	  cacheDriver->rename(dpp, oid_in_cache, new_oid_in_cache, null_yield);
 
     	  ofs += len;
