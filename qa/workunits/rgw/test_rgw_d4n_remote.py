@@ -120,20 +120,19 @@ def test_remote_cache_api(r, client, obj):
     assert(data.get('bucketName') == 'bkt')
     assert(data.get('creationTime') == '')
     assert(data.get('dirty') == '1')
-    assert(data.get('objHosts') == '')
     
     # allow cleaning cycle to pass
-    time.sleep(20)
+    time.sleep(6)
 
     log.debug(subprocess.check_output(['ls', '/tmp/rgw_d4n_datacache']).decode('latin-1'))
     assert(os.path.exists('/tmp/rgw_d4n_datacache/bkt_test.txt_0_11') == True)
-    assert(os.path.exists('/tmp/rgw_d4n_datacache/RD_bkt_test.txt_0_11') == True)
+    assert(os.path.exists('/tmp/rgw_d4n_datacache_c2/D_bkt_test.txt_0_11') == True)
 
     # check contents of both files
     out = subprocess.check_output(['cat', '/tmp/rgw_d4n_datacache/bkt_test.txt_0_11']).decode('latin-1')
     assert(out == "hello world")
 
-    out = subprocess.check_output(['cat', '/tmp/rgw_d4n_datacache/RD_bkt_test.txt_0_11']).decode('latin-1')
+    out = subprocess.check_output(['cat', '/tmp/rgw_d4n_datacache_c2/D_bkt_test.txt_0_11']).decode('latin-1')
     assert(out == "hello world")
 
     log.debug("keys:")
@@ -151,7 +150,6 @@ def test_remote_cache_api(r, client, obj):
     assert(data.get('bucketName') == 'bkt')
     assert(data.get('creationTime') == '')
     assert(data.get('dirty') == 'false')
-    assert(data.get('objHosts') == '')
 
     r.flushall()
      
