@@ -115,10 +115,10 @@
 %ifarch x86_64
 %if 0%{?fedora} || 0%{?rhel} >= 9
 %bcond_without system_qat
-%else # not fedora/rhel
+%else
 %bcond_with system_qat
 %endif
-%else # not x86_64
+%else
 %bcond_with system_qat
 %endif
 %if 0%{?fedora} || 0%{?suse_version} || 0%{?rhel} >= 8 || 0%{?openEuler}
@@ -2672,6 +2672,5 @@ exit 0
 %dir %{python3_sitelib}/ceph_node_proxy
 %{python3_sitelib}/ceph_node_proxy/*
 %{python3_sitelib}/ceph_node_proxy-*
-#%{_mandir}/man8/ceph-node-proxy.8*
 
 %changelog
