@@ -152,7 +152,7 @@ int BucketDirectory::zrange(const DoutPrefixProvider* dpp, const std::string& bu
     }
 
     if (std::get<0>(resp).value().empty()) {
-      ldpp_dout(dpp, 0) << "BucketDirectory::" << __func__ << "() Empty response" << dendl;
+      ldpp_dout(dpp, 10) << "BucketDirectory::" << __func__ << "() Empty response" << dendl;
       return -ENOENT;
     }
 
