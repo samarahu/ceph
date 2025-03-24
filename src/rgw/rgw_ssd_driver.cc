@@ -84,7 +84,7 @@ static void create_directories(const DoutPrefixProvider* dpp, const std::string&
     }
 }
 
-static std::string get_file_path(const DoutPrefixProvider* dpp, const std::string& dir_path, const std::string& file_name)
+static inline std::string get_file_path(const DoutPrefixProvider* dpp, const std::string& dir_path, const std::string& file_name)
 {
     return dir_path + "/" + file_name;
 }
