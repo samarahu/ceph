@@ -1187,7 +1187,7 @@ int BlockDirectory::remove_host(const DoutPrefixProvider* dpp, CacheBlock* block
       if (it != std::string::npos) { 
 	result.erase(result.begin() + it, result.begin() + it + delValue.size());
       } else {
-	ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): Host was not found." << dendl;
+	ldpp_dout(dpp, 10) << "BlockDirectory::" << __func__ << "(): Host was not found." << dendl;
 	return -ENOENT;
       }
 
