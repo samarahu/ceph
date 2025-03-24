@@ -399,7 +399,7 @@ int LFUDAPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional
 
 bool LFUDAPolicy::update_refcount_if_key_exists(const DoutPrefixProvider* dpp, std::string& key, uint32_t flag, optional_yield y)
 {
-  ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): updating refcount for entry: " << key << dendl;
+  ldpp_dout(dpp, 20) << "LFUDAPolicy::" << __func__ << "(): updating refcount for entry: " << key << dendl;
   const std::lock_guard l(lfuda_lock);
   auto entry = find_entry(key);
   uint64_t refcount = 0;
