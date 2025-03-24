@@ -129,8 +129,8 @@ class LFUDAPolicy : public CachePolicy {
       using handle_type = boost::heap::fibonacci_heap<LFUDAObjEntry*, boost::heap::compare<ObjectComparator<LFUDAObjEntry>>>::handle_type;
       handle_type handle;
 
-      LFUDAObjEntry(std::string& key, std::string& version, bool deleteMarker, uint64_t size,
-                     double creationTime, rgw_user user, std::string& etag,
+      LFUDAObjEntry(const std::string& key, const std::string& version, bool deleteMarker, uint64_t size,
+                     time_t creationTime, rgw_user user, std::string& etag,
                      const std::string& bucket_name, const std::string& bucket_id, const rgw_obj_key& obj_key) : ObjEntry(key, version, deleteMarker, size,
 									    creationTime, user, etag, bucket_name, bucket_id, obj_key) {}
 
