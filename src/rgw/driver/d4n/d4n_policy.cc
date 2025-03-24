@@ -1002,7 +1002,7 @@ void LRUPolicy::update(const DoutPrefixProvider* dpp, const std::string& key, ui
   entries_map.emplace(key, e);
 }
 
-void LRUPolicy::update_dirty_object(const DoutPrefixProvider* dpp, std::string& key, std::string version, bool dirty, uint64_t size, double creationTime, const rgw_user user, std::string& etag, const std::string& bucket_name, const std::string& bucket_id,
+void LRUPolicy::update_dirty_object(const DoutPrefixProvider* dpp, const std::string& key, const std::string& version, bool dirty, uint64_t size, time_t creationTime, const rgw_user user, std::string& etag, const std::string& bucket_name, const std::string& bucket_id,
 const rgw_obj_key& obj_key, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
 {
   const std::lock_guard l(lru_lock);
