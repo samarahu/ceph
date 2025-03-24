@@ -2941,7 +2941,7 @@ int D4NFilterWriter::complete(size_t accounted_size, const std::string& etag,
   // for cache coherence, we are going to cache the head even in case when read-only cache is enabled, just that
   // the head will not be marked dirty and the entire object will written to backend store also. In case write-back
   // cache is enabled, the head will be cached as dirty.
-  if (d4n_writecache == true) {
+  if (d4n_writecache) {
     auto ret = object->get_obj_attrs(y, dpp);
     if (if_match) {
       if (strcmp(if_match, "*") == 0) {
