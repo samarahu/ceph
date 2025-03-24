@@ -1074,7 +1074,7 @@ int BlockDirectory::del(const DoutPrefixProvider* dpp, CacheBlock* block, option
       response<int> resp;
       redis_exec(conn, ec, req, resp, y);
       if (!std::get<0>(resp).value()) {
-        ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): No values deleted for key=" << key << dendl;
+        ldpp_dout(dpp, 10) << "BlockDirectory::" << __func__ << "(): No values deleted for key=" << key << dendl;
         return -ENOENT;
       }
     } else { //if delete is called as part of a transaction, the command will be queued, hence the response will be a string
