@@ -489,7 +489,7 @@ void LFUDAPolicy::update_dirty_object(const DoutPrefixProvider* dpp, std::string
   }
 
   const std::lock_guard l(lfuda_cleaning_lock);
-  LFUDAObjEntry *e = new LFUDAObjEntry{key, version, deleteMarker, size, creationTime, user, etag, bucket_name, bucket_id, obj_key};
+  LFUDAObjEntry* e = new LFUDAObjEntry{key, version, deleteMarker, size, creationTime, user, etag, bucket_name, bucket_id, obj_key};
   handle_type handle = object_heap.push(e);
   e->set_handle(handle);
   o_entries_map.emplace(key, std::make_pair(e, state));
