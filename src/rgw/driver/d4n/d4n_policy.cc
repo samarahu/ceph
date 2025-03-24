@@ -461,7 +461,7 @@ void LFUDAPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64
   }  
   _erase(dpp, key, y);
   ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): updated refcount is: " << refcount << dendl;
-  LFUDAEntry *e = new LFUDAEntry(key, offset, len, version, dirty, refcount, localWeight);
+  LFUDAEntry* e = new LFUDAEntry(key, offset, len, version, dirty, refcount, localWeight);
   handle_type handle = entries_heap.push(e);
   e->set_handle(handle);
   entries_map.emplace(key, e);
