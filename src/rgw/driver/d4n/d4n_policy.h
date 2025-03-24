@@ -52,7 +52,7 @@ class CachePolicy {
       std::string version;
       bool delete_marker;
       uint64_t size;
-      double creationTime;
+      time_t creationTime;
       rgw_user user;
       std::string etag;
       std::string bucket_name;
