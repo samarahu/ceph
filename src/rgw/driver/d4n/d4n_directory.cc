@@ -412,7 +412,7 @@ int ObjectDirectory::copy(const DoutPrefixProvider* dpp, CacheObj* object, std::
     if (std::get<0>(std::get<3>(resp).value()).value().value() == 1) {
       return 0;
     } else {
-      ldpp_dout(dpp, 0) << "ObjectDirectory::" << __func__ << "(): No values copied." << dendl;
+      ldpp_dout(dpp, 10) << "ObjectDirectory::" << __func__ << "(): No values copied." << dendl;
       return -ENOENT;
     }
   } catch (std::exception &e) {
