@@ -157,7 +157,7 @@ class LFUDAPolicy : public CachePolicy {
     BucketDirectory* bucketDir;
     rgw::cache::CacheDriver* cacheDriver;
     std::optional<asio::steady_timer> rthread_timer;
-    rgw::sal::Driver *driver;
+    rgw::sal::Driver* driver;
     std::thread tc;
 
     CacheBlock* get_victim_block(const DoutPrefixProvider* dpp, optional_yield y);
