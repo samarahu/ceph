@@ -653,7 +653,7 @@ int ObjectDirectory::zremrangebyscore(const DoutPrefixProvider* dpp, CacheObj* o
 
     if (!multi) {
       if (std::get<0>(resp).value() == "0") {
-        ldpp_dout(dpp, 0) << "ObjectDirectory::" << __func__ << "() No element removed!" << dendl;
+        ldpp_dout(dpp, 10) << "ObjectDirectory::" << __func__ << "() No element removed!" << dendl;
         return -ENOENT;
       }
     }
