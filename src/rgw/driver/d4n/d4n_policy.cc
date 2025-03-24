@@ -53,7 +53,7 @@ int LFUDAPolicy::init(CephContext* cct, const DoutPrefixProvider* dpp, asio::io_
   response<int, int, int, int> resp;
   static auto obj_callback = [this](
           const DoutPrefixProvider* dpp, std::string& key, std::string version, bool dirty, uint64_t size, 
-			    time_t creationTime, const rgw_user user, std::string& etag, const std::string& bucket_name, const std::string& bucket_id,
+			    double creationTime, const rgw_user user, std::string& etag, const std::string& bucket_name, const std::string& bucket_id,
 			    const rgw_obj_key& obj_key, optional_yield y, std::string& restore_val) {
     update_dirty_object(dpp, key, version, dirty, size, creationTime, user, etag, bucket_name, bucket_id, obj_key, REFCOUNT_NOOP, y, restore_val);
   };
