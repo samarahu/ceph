@@ -34,7 +34,7 @@ static inline Object* nextObject(Object* t)
   return dynamic_cast<FilterObject*>(t)->get_next();
 }
 
-static std::string get_cache_block_prefix(rgw::sal::Object* object, std::string version) {
+static inline std::string get_cache_block_prefix(rgw::sal::Object* object, const std::string& version) {
   return url_encode(object->get_bucket()->get_bucket_id(), true) + CACHE_DELIM + url_encode(version, true) + CACHE_DELIM + url_encode(object->get_name(), true);
 }
 
@@ -1071,7 +1071,7 @@ int D4NFilterObject::create_delete_marker(const DoutPrefixProvider* dpp, optiona
     this->version = "null";
     this->set_instance("null");
   } else {
-    enum { OBJ_INSTANCE_LEN = 32 };
+    const static uint8_t OBJ_INSTANCE_LEN = 32;
     char buf[OBJ_INSTANCE_LEN + 1];
     gen_rand_alphanumeric_no_underscore(dpp->get_cct(), buf, OBJ_INSTANCE_LEN);
     this->version = buf; // using gen_rand_alphanumeric_no_underscore for the time being
@@ -2862,7 +2862,7 @@ int D4NFilterWriter::prepare(optional_yield y)
     if (object->get_bucket()->versioned() && !object->get_bucket()->versioning_enabled()) { //if versioning is suspended
       object->set_instance("null");
     }
-    enum { OBJ_INSTANCE_LEN = 32 };
+    const static uint8_t OBJ_INSTANCE_LEN = 32; 
     char buf[OBJ_INSTANCE_LEN + 1];
     gen_rand_alphanumeric_no_underscore(dpp->get_cct(), buf, OBJ_INSTANCE_LEN);
     version = buf; // using gen_rand_alphanumeric_no_underscore for the time being
