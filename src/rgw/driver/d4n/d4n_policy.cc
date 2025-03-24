@@ -993,7 +993,7 @@ int LRUPolicy::eviction(const DoutPrefixProvider* dpp, uint64_t size, optional_y
   return 0;
 }
 
-void LRUPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64_t offset, uint64_t len, std::string version, bool dirty, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
+void LRUPolicy::update(const DoutPrefixProvider* dpp, const std::string& key, uint64_t offset, uint64_t len, const std::string& version, bool dirty, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
 {
   const std::lock_guard l(lru_lock);
   _erase(dpp, key, y);
