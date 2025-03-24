@@ -49,7 +49,7 @@ void redis_exec(std::shared_ptr<connection> conn,
   }
 }
 
-int LFUDAPolicy::init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver *_driver) {
+int LFUDAPolicy::init(CephContext* cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver* _driver) {
   response<int, int, int, int> resp;
   static auto obj_callback = [this](
           const DoutPrefixProvider* dpp, std::string& key, std::string version, bool dirty, uint64_t size, 
