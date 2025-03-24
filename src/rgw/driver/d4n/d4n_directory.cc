@@ -1052,7 +1052,7 @@ int BlockDirectory::copy(const DoutPrefixProvider* dpp, CacheBlock* block, std::
     if (std::get<0>(std::get<3>(resp).value()).value().value() == 1) {
       return 0;
     } else {
-      ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): No values copied." << dendl;
+      ldpp_dout(dpp, 10) << "BlockDirectory::" << __func__ << "(): No values copied." << dendl;
       return -ENOENT;
     }
   } catch (std::exception &e) {
