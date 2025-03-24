@@ -48,7 +48,7 @@ void redis_exec(std::shared_ptr<connection> conn,
   }
 }
 
-void redis_exec(std::shared_ptr<connection> conn,
+static inline void redis_exec(std::shared_ptr<connection> conn,
                 boost::system::error_code& ec,
                 const boost::redis::request& req,
                 boost::redis::generic_response& resp, optional_yield y)
