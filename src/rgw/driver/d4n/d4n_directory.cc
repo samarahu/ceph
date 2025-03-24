@@ -1178,7 +1178,7 @@ int BlockDirectory::remove_host(const DoutPrefixProvider* dpp, CacheBlock* block
       }
 
       if (std::get<0>(resp).value().value().empty()) {
-	ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): No values returned." << dendl;
+	ldpp_dout(dpp, 10) << "BlockDirectory::" << __func__ << "(): No values returned." << dendl;
 	return -ENOENT;
       }
 
