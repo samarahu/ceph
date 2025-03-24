@@ -1006,7 +1006,7 @@ void LRUPolicy::update_dirty_object(const DoutPrefixProvider* dpp, std::string& 
 const rgw_obj_key& obj_key, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
 {
   const std::lock_guard l(lru_lock);
-  ObjEntry *e = new ObjEntry(key, version, dirty, size, creationTime, user, etag, bucket_name, bucket_id, obj_key);
+  ObjEntry* e = new ObjEntry(key, version, dirty, size, creationTime, user, etag, bucket_name, bucket_id, obj_key);
   o_entries_map.emplace(key, e);
   return;
 }
