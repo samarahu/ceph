@@ -8,9 +8,9 @@
 
 namespace rgw { namespace cache {
 
-std::list<std::string> build_attrs(const rgw::sal::Attrs& binary) 
+std::vector<std::string> build_attrs(const rgw::sal::Attrs& binary) 
 {
-  std::list<std::string> values;
+  std::vector<std::string> values;
 
   /* Convert to vector */
   if (!binary.empty()) {
