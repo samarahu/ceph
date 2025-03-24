@@ -89,7 +89,7 @@ static inline std::string get_file_path(const DoutPrefixProvider* dpp, const std
     return dir_path + "/" + file_name;
 }
 
-static std::string create_dirs_get_filepath_from_key(const DoutPrefixProvider* dpp, const std::string& location, const std::string& key, bool temp=false)
+static inline std::string create_dirs_get_filepath_from_key(const DoutPrefixProvider* dpp, const std::string& location, const std::string& key, bool temp=false)
 {
     std::string dir_path, file_name;
     parse_key(dpp, location, key, dir_path, file_name, temp);
