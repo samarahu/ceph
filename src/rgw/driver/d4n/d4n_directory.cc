@@ -435,7 +435,7 @@ int ObjectDirectory::del(const DoutPrefixProvider* dpp, CacheObj* object, option
     redis_exec(conn, ec, req, resp, y);
 
     if (!std::get<0>(resp).value()) {
-      ldpp_dout(dpp, 0) << "ObjectDirectory::" << __func__ << "(): No values deleted." << dendl;
+      ldpp_dout(dpp, 10) << "ObjectDirectory::" << __func__ << "(): No values deleted." << dendl;
       return -ENOENT;
     }
 
