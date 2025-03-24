@@ -2889,7 +2889,7 @@ int D4NFilterWriter::process(bufferlist&& data, uint64_t offset)
 
     int ret = 0;
 
-    if (d4n_writecache == false) {
+    if (!d4n_writecache) {
       ldpp_dout(dpp, 10) << "D4NFilterWriter::" << __func__ << "(): calling next process" << dendl;
       return next->process(std::move(data), offset);
     } else {
