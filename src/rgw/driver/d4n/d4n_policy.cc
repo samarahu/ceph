@@ -887,7 +887,7 @@ void LFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 	      }
 	    } //end-if (block.version == entry->version)
 	  } //end - else if op_ret == 0
-	  ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): Removing object name: "<< c_obj->get_name() << " score: " << std::setprecision(std::numeric_limits<double>::max_digits10) << e->creationTime << " from ordered set" << dendl;
+	  ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): Removing object name: "<< c_obj->get_name() << " score: " << std::setprecision(std::numeric_limits<time_t>::max_digits10) << e->creationTime << " from ordered set" << dendl;
 	  rgw::d4n::CacheObj dir_obj = rgw::d4n::CacheObj{
 	    .objName = c_obj->get_name(),
 	    .bucketName = c_obj->get_bucket()->get_bucket_id(),
