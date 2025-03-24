@@ -7698,7 +7698,7 @@ int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp,
   auto completed = d->aio->get(obj.obj, rgw::Aio::librados_op(obj.ioctx, std::move(op), d->yield), cost, id);
 
   auto ret = d->flush(std::move(completed));
-  ldpp_dout(dpp, 0) << "flush returned: " << ret << dendl;
+  ldpp_dout(dpp, 20) << __func__ <<  "(): flush returned: " << ret << dendl;
   return ret;
 }
 
