@@ -741,7 +741,7 @@ void LFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 	  off_t fst = 0;
 	  off_t ofs = 0;
 
-	  rgw::sal::DataProcessor *filter = processor.get();
+	  rgw::sal::DataProcessor* filter = processor.get();
 	  bufferlist bl;
 	  op_ret = cacheDriver->get_attrs(dpp, head_oid_in_cache, obj_attrs, null_yield); //get obj attrs from head
 	  if (op_ret < 0) {
