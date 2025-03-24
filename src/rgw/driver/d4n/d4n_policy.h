@@ -70,7 +70,7 @@ class CachePolicy {
     CachePolicy() {}
     virtual ~CachePolicy() = default; 
 
-    virtual int init(CephContext *cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver *_driver) = 0; 
+    virtual int init(CephContext* cct, const DoutPrefixProvider* dpp, asio::io_context& io_context, rgw::sal::Driver* _driver) = 0; 
     virtual int exist_key(std::string key) = 0;
     virtual int eviction(const DoutPrefixProvider* dpp, uint64_t size, optional_yield y) = 0;
     virtual bool update_refcount_if_key_exists(const DoutPrefixProvider* dpp, std::string& key, uint32_t flag, optional_yield y) = 0;
