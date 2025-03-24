@@ -1151,7 +1151,7 @@ int BlockDirectory::update_field(const DoutPrefixProvider* dpp, CacheBlock* bloc
       return -EINVAL;
     }
   } else if (ret == -ENOENT) {
-    ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): Block does not exist." << dendl;
+    ldpp_dout(dpp, 10) << "BlockDirectory::" << __func__ << "(): Block does not exist." << dendl;
   } else {
     ldpp_dout(dpp, 0) << "BlockDirectory::" << __func__ << "(): ERROR: ret=" << ret << dendl;
   }
