@@ -813,7 +813,7 @@ void LFUDAPolicy::cleaning(const DoutPrefixProvider* dpp)
 	  fst = 0;
 	  do {
 	    if (fst >= lst) {
-	break;
+	      break;
 	    }
 	    off_t cur_size = std::min<off_t>(fst + dpp->get_cct()->_conf->rgw_max_chunk_size, lst);
 	    off_t cur_len = cur_size - fst;
