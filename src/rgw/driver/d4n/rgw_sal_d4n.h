@@ -288,7 +288,7 @@ class D4NFilterWriter : public FilterWriter {
     D4NFilterWriter(std::unique_ptr<Writer> _next, D4NFilterDriver* _driver, Object* _obj, 
 	const DoutPrefixProvider* _dpp, optional_yield _y) : FilterWriter(std::move(_next), _obj),
 							     driver(_driver),
-							     dpp(_dpp), atomic(false), y(_y) { object = dynamic_cast<D4NFilterObject*>(obj); }
+							     dpp(_dpp), atomic(false), y(_y) { object = static_cast<D4NFilterObject*>(obj); }
     D4NFilterWriter(std::unique_ptr<Writer> _next, D4NFilterDriver* _driver, Object* _obj, 
 	const DoutPrefixProvider* _dpp, bool _atomic, optional_yield _y) : FilterWriter(std::move(_next), _obj),
 									   driver(_driver),
