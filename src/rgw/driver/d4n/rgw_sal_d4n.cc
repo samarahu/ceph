@@ -1130,14 +1130,16 @@ int D4NFilterObject::create_delete_marker(const DoutPrefixProvider* dpp, optiona
   return 0;
 }
 
-//This method maintains adds the following entries:
-//1. A hash entry that maintains the latest version for dirty objects (versioned and non-versioned) and non-versioned clean objects.
-//2. A "null" hash entry that maintains the same version as the latest hash entry - this is used when get/delete requests are received
-// for "null" versions, when bucket is non-versioned.
-//3. The "null" hash entry is overwritten when we have a "null" instance when bucket versioning is suspended.
-//4. A versioned hash entry for every version for a version enabled bucket - this helps in get/delete requests with version-id specified
-//5. Redis ordered set to maintain the order of dirty objects added for a version enabled bucket. Even when the bucket is non-versioned, this set maintains a "null" entry
-//6. Another ordered set to maintain a lexicographically sorted order of objects for a bucket - used for bucket listing
+/* 
+ * This method maintains adds the following entries:
+ * 1. A hash entry that maintains the latest version for dirty objects (versioned and non-versioned) and non-versioned clean objects.
+ * 2. A "null" hash entry that maintains the same version as the latest hash entry - this is used when get/delete requests are received
+ *    for "null" versions, when bucket is non-versioned.
+ * 3. The "null" hash entry is overwritten when we have a "null" instance when bucket versioning is suspended.
+ * 4. A versioned hash entry for every version for a version enabled bucket - this helps in get/delete requests with version-id specified
+ * 5. Redis ordered set to maintain the order of dirty objects added for a version enabled bucket. Even when the bucket is non-versioned, this set maintains a "null" entry
+ * 6. Another ordered set to maintain a lexicographically sorted order of objects for a bucket - used for bucket listing 
+ */
 int D4NFilterObject::set_head_obj_dir_entry(const DoutPrefixProvider* dpp, std::vector<std::string>* exec_responses, optional_yield y, bool is_latest_version, bool dirty)
 {
   ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): object name: " << this->get_name() << " bucket name: " << this->get_bucket()->get_name() << dendl;
