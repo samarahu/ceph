@@ -36,7 +36,7 @@ class CachePolicy {
       std::string version;
       bool dirty;
       uint64_t refcount{0};
-      Entry(std::string& key, uint64_t offset, uint64_t len, std::string version, bool dirty, uint64_t refcount) : key(key), offset(offset), 
+      Entry(const std::string& key, uint64_t offset, uint64_t len, const std::string& version, bool dirty, uint64_t refcount) : key(key), offset(offset), 
 											        len(len), version(version), dirty(dirty), refcount(refcount) {}
       };
    
