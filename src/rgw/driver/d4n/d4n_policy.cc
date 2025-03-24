@@ -423,7 +423,7 @@ bool LFUDAPolicy::update_refcount_if_key_exists(const DoutPrefixProvider* dpp, s
   return true;
 }
 
-void LFUDAPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64_t offset, uint64_t len, std::string version, bool dirty, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
+void LFUDAPolicy::update(const DoutPrefixProvider* dpp, const std::string& key, uint64_t offset, uint64_t len, const std::string& version, bool dirty, uint32_t refcount_flag, optional_yield y, std::string& restore_val)
 {
   ldpp_dout(dpp, 10) << "LFUDAPolicy::" << __func__ << "(): updating entry: " << key << dendl;
   using handle_type = boost::heap::fibonacci_heap<LFUDAEntry*, boost::heap::compare<EntryComparator<LFUDAEntry>>>::handle_type;
