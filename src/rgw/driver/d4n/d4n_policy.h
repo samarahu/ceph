@@ -59,8 +59,8 @@ class CachePolicy {
       std::string bucket_id;
       rgw_obj_key obj_key;
       ObjEntry() = default;
-      ObjEntry(std::string& key, std::string version, bool delete_marker, uint64_t size,
-		double creationTime, rgw_user user, std::string& etag, 
+      ObjEntry(const std::string& key, const std::string& version, bool delete_marker, uint64_t size,
+		time_t creationTime, rgw_user user, std::string& etag, 
 		const std::string& bucket_name, const std::string& bucket_id, const rgw_obj_key& obj_key) : key(key), version(version), delete_marker(delete_marker), size(size),
 									      creationTime(creationTime), user(user), etag(etag), 
 									      bucket_name(bucket_name), bucket_id(bucket_id), obj_key(obj_key) {}
