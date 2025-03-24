@@ -360,7 +360,7 @@ int ObjectDirectory::get(const DoutPrefixProvider* dpp, CacheObj* object, option
     }
 
     if (std::get<0>(resp).value().empty()) {
-      ldpp_dout(dpp, 0) << "ObjectDirectory::" << __func__ << "(): No values returned." << dendl;
+      ldpp_dout(dpp, 10) << "ObjectDirectory::" << __func__ << "(): No values returned." << dendl;
       return -ENOENT;
     }
 
