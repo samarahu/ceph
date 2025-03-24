@@ -997,7 +997,7 @@ void LRUPolicy::update(const DoutPrefixProvider* dpp, std::string& key, uint64_t
 {
   const std::lock_guard l(lru_lock);
   _erase(dpp, key, y);
-  Entry *e = new Entry(key, offset, len, version, dirty, 0);
+  Entry* e = new Entry(key, offset, len, version, dirty, 0);
   entries_lru_list.push_back(*e);
   entries_map.emplace(key, e);
 }
