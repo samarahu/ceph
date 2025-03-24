@@ -42,7 +42,7 @@ class CachePolicy {
    
     //The disposer object function
     struct Entry_delete_disposer {
-      void operator()(Entry *e) {
+      void operator()(Entry* e) {
         delete e;
       }
     };
