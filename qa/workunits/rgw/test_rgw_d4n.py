@@ -178,8 +178,13 @@ def test_small_object(r, client, s3):
     output = subprocess.check_output(['md5sum', datacache_path + datacache]).decode('latin-1')
     assert(output.splitlines()[0].split()[0] == hashlib.md5("test".encode('utf-8')).hexdigest())
 
+    for key in r.scan_iter(match='*'):
+        print("Key: " + key)
+
+
     data = {}
-    for entry in r.scan_iter("*_test.txt_0_4"):
+    for entry in r.scan_iter(match="*_test.txt_0_4"):
+        print("Entry: " + entry)
         data = r.hgetall(entry)
 
         # directory entry comparisons
@@ -191,6 +196,8 @@ def test_small_object(r, client, s3):
         assert(data.get('bucketName') == bucketID)
         assert(data.get('dirty') == '0')
         assert(data.get('hosts') == '127.0.0.1:6379')
+
+    print("Data: " + data)
 
     # second get call
     response_get = obj.get()
@@ -215,6 +222,7 @@ def test_small_object(r, client, s3):
     assert(output.splitlines()[0].split()[0] == hashlib.md5("test".encode('utf-8')).hexdigest())
 
     for entry in r.scan_iter("*_test.txt_0_4"):
+        print("Entry: " + entry)
         data = r.hgetall(entry)
 
         # directory entries should remain consistent
@@ -226,6 +234,8 @@ def test_small_object(r, client, s3):
         assert(data.get('bucketName') == bucketID)
         assert(data.get('dirty') == '0')
         assert(data.get('hosts') == '127.0.0.1:6379')
+
+    print(data)
 
     r.flushall()
 
