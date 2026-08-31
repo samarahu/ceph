@@ -1119,7 +1119,7 @@ int RedisObjectDirectory::del(const DoutPrefixProvider* dpp, CacheObj* object, o
     boost::system::error_code ec;
     response<int> resp;
     request req;
-    req.push("DEL", key);
+    req.push("ZREM", object->bucketName, object->objName);
 
     redis_exec_connection_pool(dpp, redis_pool, REDISconn, ec, req, resp, y);
 
