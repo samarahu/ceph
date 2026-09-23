@@ -1456,6 +1456,24 @@ int FDBBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, Cach
   });
 }
 
+int FDBBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, std::vector<CacheBlock>& blocks, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  try {
+    return fdb_invoke(dpp, txn, [&](auto& tr) {
+      for (size_t i = 0; i < blocks.size(); ++i) {
+        auto& block = blocks[i];
+        std::string key = build_index(&block);
+
+        ldpp_dout(dpp, 10) << "FDBBlockDirectory::" << __func__ << "(): index is: " << key << dendl;
+	lfdb::erase(tr, key);
+      }
+      return 0;
+    });
+  } catch (const std::exception& e) {
+    ldpp_dout(dpp, 0) << "FDBBlockDirectory::" << __func__ << "() ERROR: " << e.what() << dendl;
+    return -EINVAL;
+  }
+}
 
 int FDBBlockDirectory::update_field(const DoutPrefixProvider* dpp, optional_yield y, CacheBlock* block, const std::string& field, std::string& value, std::optional<std::reference_wrapper<Transaction>> txn)
 {
