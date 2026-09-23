@@ -446,6 +446,8 @@ class D4NFilterBucket : public FilterBucket {
     void merge_results(const DoutPrefixProvider* dpp, const ListParams& params,
                         ListResults& cache_results, ListResults& store_results,
                         int max, ListResults& results);
+    int process_remove_objects(const DoutPrefixProvider* dpp, bool delete_children,
+                               optional_yield y);
 
   public:
     D4NFilterBucket(std::unique_ptr<Bucket> _next, D4NFilterDriver* _filter) :

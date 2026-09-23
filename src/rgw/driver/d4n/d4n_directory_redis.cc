@@ -1189,7 +1189,31 @@ int RedisBucketDirectory::exist_key(const DoutPrefixProvider* dpp, optional_yiel
 //FIXME: this is a dummy function and should be updated.
 int RedisBucketDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, std::optional<std::reference_wrapper<Transaction>> txn)
 {
-  return 0;
+  ldpp_dout(dpp, 10) << "RedisBucketDirectory::" << __func__ << "(): index is: " << bucket_id << dendl;
+
+  try {
+    boost::system::error_code ec;
+    response<int> resp;
+    request req;
+    req.push("ZREMRANGEBYSCORE", bucket_id, "-inf", "+inf");
+
+    redis_exec_connection_pool(dpp, redis_pool, REDISconn, ec, req, resp, y);
+
+    if (!std::get<0>(resp).value()) {
+      ldpp_dout(dpp, 10) << "RedisBucketDirectory::" << __func__ << "(): No values deleted." << dendl;
+      return -ENOENT;
+    }
+
+    if (ec) {
+      ldpp_dout(dpp, 0) << "RedisBucketDirectory::" << __func__ << "() ERROR: " << ec.what() << dendl;
+      return -ec.value();
+    }
+  } catch (std::exception &e) {
+    ldpp_dout(dpp, 0) << "RedisBucketDirectory::" << __func__ << "() ERROR: " << e.what() << dendl;
+    return -EINVAL;
+  }
+
+  return 0; 
 }
 
 int RedisBucketDirectory::add_object(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& object_name, std::optional<CacheObject> params, std::optional<std::reference_wrapper<Transaction>> txn)
@@ -1200,6 +1224,19 @@ int RedisBucketDirectory::add_object(const DoutPrefixProvider* dpp, optional_yie
 int RedisBucketDirectory::remove_object(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& object_name, std::optional<std::reference_wrapper<Transaction>> txn)
 {
   return zrem(dpp, y, bucket_id, object_name, txn);
+}
+
+int RedisBucketDirectory::remove_objects(const DoutPrefixProvider* dpp, optional_yield y, std::vector<std::pair<const std::string&, const std::string&>> objects, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  for (auto& pair : objects) {
+    auto bucket_id = std::get<0>(pair);
+    auto object_name = std::get<1>(pair);
+    int ret = zrem(dpp, y, bucket_id, object_name, txn);
+    if (ret < 0) {
+      return ret;
+    }
+  }
+  return 0;
 }
 
 int RedisBucketDirectory::list_objects(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& start_token, const std::string& prefix, const std::string& marker, uint64_t count, bool marker_inclusive, std::vector<CacheObject>& objs_info, std::string& continuation_token, std::optional<std::reference_wrapper<Transaction>> txn)
@@ -1330,7 +1367,7 @@ int RedisObjectDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, C
     return ret;
 
   try {
-    target->push_range("DEL", key);
+    target->push_range("ZREM", object->bucketName, object->objName);
 
     if (rtxn) {
       return 0;   // batched — caller commits later
@@ -1599,6 +1636,20 @@ int RedisObjectDirectory::add_version(const DoutPrefixProvider* dpp, optional_yi
 int RedisObjectDirectory::remove_version(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& obj_name, const std::string& version, std::optional<std::reference_wrapper<Transaction>> txn)
 {
   return zrem(dpp, y, bucket_id, obj_name, version, txn);
+}
+
+int RedisObjectDirectory::remove_versions(const DoutPrefixProvider* dpp, optional_yield y, std::vector<std::tuple<const std::string&, const std::string&, const std::string&>> to_remove, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  for (auto& tuple : to_remove) {
+    auto bucket_id = std::get<0>(tuple);
+    auto obj_name = std::get<1>(tuple);
+    auto version = std::get<2>(tuple);
+    int ret = zrem(dpp, y, bucket_id, obj_name, version, txn);
+    if (ret < 0) {
+      return ret;
+    }
+  }
+  return 0;
 }
 
 int RedisObjectDirectory::remove_version_by_creation_time(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& obj_name, ceph::real_time creation_time, std::optional<std::reference_wrapper<Transaction>> txn)
@@ -2218,6 +2269,52 @@ int RedisBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y,
     return -EINVAL;
   }
 
+  return 0;
+}
+
+int RedisBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y,
+                             std::vector<CacheBlock>& blocks,
+                             std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  if (blocks.empty())
+    return 0;
+
+  boost::redis::generic_response resp;
+  request req;
+  RedisTransaction* rtxn = nullptr;
+  request* target = nullptr;
+  if (int ret = prepare_request(dpp, txn, req, rtxn, target); ret < 0)
+    return ret;
+
+  try {
+    for (auto& block : blocks) {
+      std::string key = build_index(&block);
+      ldpp_dout(dpp, 10)
+	<< "RedisBlockDirectory::" << __func__
+	<< "(): index is: " << key << dendl;
+
+	target->push("DEL", key);
+    } //end - for
+
+    if (rtxn) {
+      return 0;  // batched — caller commits later
+    }
+
+    boost::system::error_code ec;
+    response<int> resp;
+
+    redis_exec_connection_pool(dpp, redis_pool, REDISconn, ec, *target, resp, y);
+
+    if (ec) {
+      ldpp_dout(dpp, 0)
+	<< "RedisBlockDirectory::" << __func__
+	<< "() ERROR: " << ec.what() << dendl;
+      return -ec.value();
+    }
+  } catch (std::exception &e) {
+    ldpp_dout(dpp, 0) << "RedisBlockDirectory::" << __func__ << "() ERROR: " << e.what() << dendl;
+    return -EINVAL;
+  }
   return 0;
 }
 
