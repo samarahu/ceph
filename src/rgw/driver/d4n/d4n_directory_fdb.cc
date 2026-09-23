@@ -660,6 +660,19 @@ int FDBBucketDirectory::remove_object(const DoutPrefixProvider* dpp, optional_yi
   return fdb_rem(dpp, y, bucket_id, object_name, txn);
 }
 
+int FDBBucketDirectory::remove_objects(const DoutPrefixProvider* dpp, optional_yield y, std::vector<std::pair<const std::string&, const std::string&>> objects, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  return fdb_invoke(dpp, txn, [&](auto& tr){
+    for (auto& pair : objects) {
+      auto bucket_id = std::get<0>(pair);
+      auto member = std::get<1>(pair);
+      std::string member_key = build_object_index(bucket_id, member);
+      lfdb::erase(tr, member_key);
+    }
+    return 0;
+  });
+}
+
 int FDBBucketDirectory::list_objects(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& start_token, const std::string& prefix, const std::string& marker, uint64_t count, bool marker_inclusive, std::vector<CacheObject>& objs_info, std::string& continuation_token, std::optional<std::reference_wrapper<Transaction>> txn)
 {
   return fdb_scan(dpp, y, bucket_id, marker, prefix, count, marker_inclusive, objs_info, continuation_token, txn);
@@ -1136,6 +1149,29 @@ int FDBObjectDirectory::remove_version(const DoutPrefixProvider* dpp, optional_y
   return fdb_rem(dpp, y, bucket_id, obj_name, version, txn);
 }
 
+int FDBObjectDirectory::remove_versions(const DoutPrefixProvider* dpp, optional_yield y, std::vector<std::tuple<const std::string&, const std::string&, const std::string&>> to_remove, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  return fdb_invoke(dpp, txn, [&](auto& tr){
+    for (auto& tuple : to_remove) {
+      auto bucket_id = std::get<0>(tuple);
+      auto obj_name = std::get<1>(tuple);
+      auto version = std::get<2>(tuple);
+      std::string score_key = build_version_score_index(dpp, bucket_id, obj_name, version);
+      std::string existing_score;
+      bool found = lfdb::get(tr, score_key, existing_score);
+
+      if (!found) {
+        return -ENOENT;
+      }
+
+      std::string version_key = build_versions_index(dpp, bucket_id, obj_name, existing_score, version);
+      lfdb::erase(tr, version_key);
+      lfdb::erase(tr, score_key);
+    }
+    return 0;
+  });
+}
+
 int FDBObjectDirectory::remove_version_by_creation_time(const DoutPrefixProvider* dpp, optional_yield y, const std::string& bucket_id, const std::string& obj_name, ceph::real_time creation_time, std::optional<std::reference_wrapper<Transaction>> txn)
 {
   auto score = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -1456,6 +1492,24 @@ int FDBBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, Cach
   });
 }
 
+int FDBBlockDirectory::del(const DoutPrefixProvider* dpp, optional_yield y, std::vector<CacheBlock>& blocks, std::optional<std::reference_wrapper<Transaction>> txn)
+{
+  try {
+    return fdb_invoke(dpp, txn, [&](auto& tr) {
+      for (size_t i = 0; i < blocks.size(); ++i) {
+        auto& block = blocks[i];
+        std::string key = build_index(&block);
+
+        ldpp_dout(dpp, 10) << "FDBBlockDirectory::" << __func__ << "(): index is: " << key << dendl;
+        lfdb::erase(tr, key);
+      }
+      return 0;
+    });
+  } catch (const std::exception& e) {
+    ldpp_dout(dpp, 0) << "FDBBlockDirectory::" << __func__ << "() ERROR: " << e.what() << dendl;
+    return -EINVAL;
+  }
+}
 
 int FDBBlockDirectory::update_field(const DoutPrefixProvider* dpp, optional_yield y, CacheBlock* block, const std::string& field, std::string& value, std::optional<std::reference_wrapper<Transaction>> txn)
 {
