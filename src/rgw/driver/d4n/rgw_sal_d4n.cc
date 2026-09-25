@@ -1595,7 +1595,7 @@ int D4NFilterObject::set_head_block_dir_entry(const DoutPrefixProvider* dpp, opt
        but not for a clean object that belongs to a versioned bucket, as we will get the latest version from backend store
        to simplify delete object (maintaining correct order of versions) */
 
-    if (dirty) {
+    if (dirty || this->is_cache_request()) {
       std::optional<rgw::d4n::Pipeline> pipeline_opt;
       rgw::d4n::Pipeline* p = make_pipeline(pipeline_opt);
 
@@ -1775,7 +1775,7 @@ int D4NFilterObject::set_data_block_dir_entries(const DoutPrefixProvider* dpp, o
     if (block.cacheObj.objName.empty()) {
       continue;
     }
-    if (update_dirty_flag) {
+    if (update_dirty_flag && !this->is_cache_request()) {
       block.cacheObj.dirty = dirty;
     }
     block.cacheObj.hostsList.insert(dpp->get_cct()->_conf->rgw_d4n_local_rgw_address);
@@ -3277,7 +3277,7 @@ int D4NFilterObject::D4NFilterDeleteOp::update_directory_entries(const DoutPrefi
     }
 
     // For dirty objects: remove from version list and bucket directory
-    if (objDirty) {
+    if (objDirty || source->is_cache_request()) {
       rgw::d4n::CacheObj dir_obj = {
         .objName = source->get_name(),
         .bucketName = source->get_bucket()->get_bucket_id(),
@@ -3475,6 +3475,9 @@ int D4NFilterObject::D4NFilterDeleteOp::delete_obj(const DoutPrefixProvider* dpp
         block.blockID = static_cast<uint64_t>(fst);
         block.size = static_cast<uint64_t>(cur_len);
 
+        if (int ret = source->driver->get_block_dir()->del(dpp, y, &block, std::nullopt) < 0 && ret != -ENOENT) { // TODO: use txn?
+          ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << "(): Failed to delete data block, ret=" << ret << dendl;
+        }
         std::string key = get_key_in_cache(get_cache_block_prefix(source, version), std::to_string(fst), std::to_string(cur_len));
         if (auto ret = source->delete_cache_entry(dpp, key, y); ret < 0) {
           return ret;
@@ -3489,7 +3492,7 @@ int D4NFilterObject::D4NFilterDeleteOp::delete_obj(const DoutPrefixProvider* dpp
   if (!objDirty) {
     if (cache_request && remote_cache_request) {
       // Skip backend delete for cache_request, but send remote delete below
-    } else {
+    } else if (!cache_request) {
       next->params = params;
       ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): object is not dirty; calling next->delete_obj" << dendl;
       auto ret = next->delete_obj(dpp, y, flags);
