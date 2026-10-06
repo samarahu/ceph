@@ -29,6 +29,14 @@ int LFUDAPolicy::age_sync(const DoutPrefixProvider* dpp, optional_yield y) {
   return 0;
 }
 
+/* Minimum local weight describes the global average minimum local weight across all participating caches
+ * in the D4N cluster. This value is compared to the local weight of the victim block (to be evicted) to 
+ * decide if it should be remotely pushed to that cache. minLocalWeights is posted in three parts: sum, 
+ * size, and the address of the cache the title belongs to. This is so the average minimum local weight 
+ * can easily be calculated for use within the LFUDA logic without complicating its global maintenance 
+ * when updates are necessary. Similarly, avgLocalWeight is kept in the directory for each cache (with 
+ * the unique cache address acting as the key) for situations where closer caches with comparably low 
+ * average local weights are preferred as the target for remote evictions. */
 int LFUDAPolicy::local_weight_sync(const DoutPrefixProvider* dpp, optional_yield y) {
   auto txn = this->driver->get_txn_factory()->create_transaction(dpp); 
   if (fabs(weightSum - postedSum) > (postedSum * 0.1)) {
