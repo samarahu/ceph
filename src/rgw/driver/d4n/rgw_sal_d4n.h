@@ -426,6 +426,7 @@ class D4NFilterBucket : public FilterBucket {
     bool cache_request{false};
     bool return_blocks{false}; // indicates whether dir_blocks should be populated
     std::unordered_map<std::string, rgw::d4n::CacheBlock> dir_blocks; // for use in bucket removal
+    std::unordered_map<std::string, std::vector<std::string>> dir_objects; // for use in bucket removal
 
     struct FetchContext {
       std::vector<rgw::d4n::CacheObject> objects;
