@@ -394,7 +394,7 @@ public:
 
     int del(const DoutPrefixProvider* dpp, optional_yield y,
             std::vector<CacheBlock>& blocks,
-	    std::optional<std::reference_wrapper<Transaction>> txn) override;
+			std::optional<std::reference_wrapper<Transaction>> txn) override;
 
     int update_field(const DoutPrefixProvider* dpp, optional_yield y,
                      CacheBlock* block,

@@ -462,7 +462,7 @@ class BlockDirectory: virtual public Directory {
     BlockDirectory() = default;
     virtual ~BlockDirectory() = default;
     
-    std::string build_index(const CacheBlock* block);
+    std::string build_index(const CacheBlock& block);
     virtual int exist_key(const DoutPrefixProvider* dpp, optional_yield y, CacheBlock* block, std::optional<std::reference_wrapper<Transaction>> txn) = 0;
 
     virtual int set(const DoutPrefixProvider* dpp, optional_yield y, std::vector<CacheBlock>& blocks, std::optional<std::reference_wrapper<Transaction>> txn) = 0;
