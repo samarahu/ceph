@@ -255,6 +255,7 @@ int D4NFilterBucket::build_versioned_entries(const DoutPrefixProvider* dpp, cons
                               std::string& last_version, int& num_objs, bool& object_exhausted, int max,
                               std::optional<std::reference_wrapper<rgw::d4n::Transaction>> txn, optional_yield y) {
   std::vector<rgw::d4n::CacheObjectVersion> versions;
+  std::vector<std::string> dir_obj_versions;
   std::string objName = obj.objName;
   if (objName[0] == '_') {
     objName = "_" + obj.objName;
@@ -289,10 +290,12 @@ int D4NFilterBucket::build_versioned_entries(const DoutPrefixProvider* dpp, cons
       ldpp_dout(dpp, 20) << "version.user_id: " << version.user_id << dendl;
       ldpp_dout(dpp, 20) << "version.display_name: " << version.display_name << dendl;
       ldpp_dout(dpp, 20) << "version.deleteMarker: " << version.deleteMarker << dendl;
+      dir_obj_versions.push_back(version.version);
     }
   }
 
   if (!versions.empty()) {
+    bkt_remove_objects.emplace(std::make_pair(objName, dir_obj_versions));
     for (size_t i = 0; i < versions.size(); i++) {
       rgw_bucket_dir_entry entry;
       entry.key.name = objName;
@@ -370,6 +373,7 @@ int D4NFilterBucket::process_objects_batch(const DoutPrefixProvider* dpp,
 {
   ldpp_dout(dpp, 0) << "D4NFilterBucket::" << __func__ << " is_truncated: " << is_truncated << dendl;
   stopped_early = false;
+  bkt_remove_objects.clear();
   for (size_t idx = 0; idx < input_objects.size(); ++idx) {
     const std::string& obj = input_objects[idx].objName;
     const rgw::d4n::CacheObject& cache_obj = input_objects[idx];
@@ -443,7 +447,7 @@ int D4NFilterBucket::populate_cache_results(const DoutPrefixProvider* dpp, std::
     }
   }
 
-  dir_blocks.clear();
+  bkt_remove_blocks.clear();
   auto blockDir = this->filter->get_block_dir();
   size_t batch_size = 100;  // Process blocks in batches
 
@@ -487,7 +491,7 @@ int D4NFilterBucket::populate_cache_results(const DoutPrefixProvider* dpp, std::
         continue;
       }
 
-      dir_blocks.emplace(std::pair(block.cacheObj.objName, block));
+      bkt_remove_blocks.emplace(std::pair(block.cacheObj.objName, block));
 
       size_t entry_idx = start + i;
       auto& source_entry = entries[entry_idx];
@@ -751,7 +755,6 @@ int D4NFilterBucket::process_remove_objects(const DoutPrefixProvider* dpp,
   auto objDir = this->filter->get_obj_dir();
   auto bucketDir = this->filter->get_bucket_dir();
   std::vector<rgw::d4n::CacheBlock> blocks; 
-  std::vector<std::pair<rgw::d4n::CacheObj, std::string>> objects; 
 
   do {
     results.objs.clear();
@@ -797,8 +800,7 @@ int D4NFilterBucket::process_remove_objects(const DoutPrefixProvider* dpp,
       // Versioned head object
       blocks.push_back(versioned_block);
 
-      auto it = dir_blocks.find(versioned_block.cacheObj.objName);
-      if (it != dir_blocks.end()) {
+      if (auto it = bkt_remove_blocks.find(versioned_block.cacheObj.objName); it != bkt_remove_blocks.end()) {
         /* Retrieve the latest null instance. For each upload while versioning is suspended on a bucket, a unique version is assigned
          * to the object internally. These are maintained in the directory but are overwritten when a new version is uploaded and
          * deleted during a cleaning cycle. As a result, we only delete the latest unique null versioned block. */ 
@@ -814,7 +816,7 @@ int D4NFilterBucket::process_remove_objects(const DoutPrefixProvider* dpp,
         if (it->second.cacheObj.dirty) {
           if (!this->filter->get_policy_driver()->get_cache_policy()->invalidate_dirty_object(dpp, get_cache_block_prefix(c_obj.get(), it->second.version))) {
             ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): Failed to invalidate obj=" << c_obj->get_name() << " in cache" << dendl;
-            return -EINVAL;
+            //return -EINVAL; // TODO: Might have already been invalidated through PUT.
           }
         }
       } else {
@@ -822,42 +824,81 @@ int D4NFilterBucket::process_remove_objects(const DoutPrefixProvider* dpp,
         return -ENOENT;
       }
 
-      objects.push_back(std::make_pair(object, oid_version));
-
       /* Use pipelining for batches of ~10k commands since that is the max suggested
-       * in redis docs */ // TODO: how about fdb?
+       * in Redis docs */ // TODO: how about fdb?
       if (((PIPELINE_MAX - blocks.size()) <= OBJECT_LIST_VAL) || (blocks.size() > (PIPELINE_MAX - 1000))) { 
-        if ((ret = blockDir->del(dpp, y, blocks, std::nullopt)) < 0) {
-          ldpp_dout(dpp, 10)
-            << "D4NFilterBucket::" << __func__
-            << "(): Failed to delete cached object in block directory, ret="
-            << ret << dendl;
-          return ret;
-        }
-        blocks.clear();
-      }
-      if ((PIPELINE_MAX - objects.size()) <= OBJECT_LIST_VAL) {
-        if (objects.size()) {
-          std::vector<std::tuple<const std::string&,
-                                 const std::string&,
-                                 const std::string&>> to_remove;
-          std::vector<std::pair<const std::string&, const std::string&>> objs_to_remove;
-          auto bucket_id = this->get_bucket_id();
-          for (auto& pair : objects) {
-            to_remove.push_back(std::tie(bucket_id, pair.first.objName, pair.second));
-            objs_to_remove.emplace_back(bucket_id, pair.first.objName);
+        // Retry directory transaction at least once on conflicts
+        constexpr int max_retries = 2; // 2 attempts total (1 initial + 1 retry)
+        for (int attempt = 0; attempt < max_retries; ++attempt) {
+          if (attempt > 0) {
+            ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): retrying directory transaction, attempt=" << attempt + 1 << dendl;
           }
-          if ((ret = objDir->remove_versions(dpp, y, to_remove, std::nullopt)) < 0) {
-            ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): Failed to remove version in object directory, ret=" << ret << dendl;
+
+          auto txn_factory = this->filter->get_txn_factory();
+          auto txn = txn_factory->create_transaction(dpp);
+          if ((ret = blockDir->del(dpp, y, blocks, *txn)) < 0) {
+            ldpp_dout(dpp, 10)
+              << "D4NFilterBucket::" << __func__
+              << "(): Failed to delete block in block directory, ret="
+              << ret << dendl;
             return ret;
           }
-          ret = bucketDir->remove_objects(dpp, y, objs_to_remove, std::nullopt);
+          ret = txn->commit(dpp, y);
+          if (ret < 0) {
+            // Retry on transaction conflict
+            if ((ret == -EAGAIN || ret == -EBUSY) && attempt + 1 < max_retries) {
+              ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): transaction conflict on delete block, retrying" << dendl;
+              continue;
+            }
+            ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << "(): failed to commit delete block transaction, ret=" << ret << dendl;
+            return ret;
+          }
+
+          // Transaction committed successfully - break out of retry loop
+          break;
+        } // end retry loop
+        blocks.clear();
+      }
+      /* Batch deletes aren't used for objects because all versions belonging to an object,
+       * as well as the object itself, must all be deleted with one transaction, irregardless
+       * of optimal batch sizes. */
+      if (auto it = bkt_remove_objects.find(object.objName); it != bkt_remove_objects.end()) {
+        auto bucket_id = this->get_bucket_id();
+        constexpr int max_retries = 2;
+        for (int attempt = 0; attempt < max_retries; ++attempt) {
+          if (attempt > 0) {
+            ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): retrying directory transaction, attempt=" << attempt + 1 << dendl;
+          }
+
+          auto txn_factory = this->filter->get_txn_factory();
+          auto txn = txn_factory->create_transaction(dpp);
+          for (const auto& version : it->second) {
+            if ((ret = objDir->remove_version(dpp, y, bucket_id, it->first, version, *txn)) < 0) {
+              ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): Failed to remove version " << version << " in object directory, ret=" << ret << dendl;
+              return ret;
+            }
+          }
+          ret = bucketDir->remove_object(dpp, y, bucket_id, it->first, *txn);
           if (ret < 0) {
             ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): Failed to delete object in bucket directory, ret=" << ret << dendl;
             return ret;
           }
-          objects.clear();
-        }
+          ret = txn->commit(dpp, y);
+          if (ret < 0) {
+            if ((ret == -EAGAIN || ret == -EBUSY) && attempt + 1 < max_retries) {
+              ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): transaction conflict on remove object, retrying" << dendl;
+              continue;
+            }
+            ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << "(): failed to commit remove object transaction, ret=" << ret << dendl;
+            return ret;
+          }
+          break;
+        } // end retry loop
+
+        /* All versions must be removed with the object under one transaction, so if the object appears again within the list 
+         * results, this transaction doesn't need to occur again. To guarantee this, we remove it from bkt_remove_objects, an unordered_map
+         * that stores each object as a key and its associated version(s) as a value. */
+        bkt_remove_objects.erase(it);
       }
     }
   } while (results.is_truncated);
@@ -874,25 +915,21 @@ int D4NFilterBucket::process_remove_objects(const DoutPrefixProvider* dpp,
       }
     }
   }
-  if (objects.size()) {
-    for (auto& pair : objects) {
-      if ((ret = objDir->remove_version(dpp, y, this->get_bucket_id(), pair.first.objName, pair.second, std::nullopt)) < 0) {
-        ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): Failed to remove version in object directory, ret=" << ret << dendl;
-        return ret;
-      }
-      ret = bucketDir->remove_object(dpp, y, this->get_bucket_id(), pair.first.objName, std::nullopt);
-      if (ret < 0) {
-        ldpp_dout(dpp, 10) << "D4NFilterObject::" << __func__ << "(): Failed to delete object in bucket directory for: " << pair.first.objName << ", ret=" << ret << dendl;
-        return ret;
-      }
+  if (this->filter->get_directory_type() == "redis") {
+    if ((ret = bucketDir->del(dpp, y, this->get_bucket_id(), std::nullopt)) < 0 && (ret != -ENOENT)) {
+      ldpp_dout(dpp, 10)
+        << "D4NFilterBucket::" << __func__
+        << "(): Failed to delete bucket in bucket directory, ret="
+        << ret << dendl;
+      return ret;
     }
   }
   return 0;
 }
 
 int D4NFilterBucket::remove(const DoutPrefixProvider* dpp,
-			    bool delete_children,
-			    optional_yield y)
+                            bool delete_children,
+                            optional_yield y)
 {
   /* 1. Begin processing of current cache state */
   int ret = process_remove_objects(dpp, delete_children, y);
@@ -901,7 +938,7 @@ int D4NFilterBucket::remove(const DoutPrefixProvider* dpp,
   }
 
   ldpp_dout(dpp, 20) << "D4NFilterBucket::" << __func__ << "(): calling next->remove" << dendl;
-  if (ret = next->remove(dpp, delete_children, y); ret < 0) {
+  if (ret = next->remove(dpp, delete_children, y); ret < 0 && ret != -ENOENT) {
     ldpp_dout(dpp, 10) << "D4NFilterBucket::" << __func__ << "(): ERROR: next->remove failed, ret = " << ret << dendl;
   }
 
@@ -3650,7 +3687,7 @@ int D4NFilterObject::D4NFilterDeleteOp::delete_obj(const DoutPrefixProvider* dpp
         block.blockID = static_cast<uint64_t>(fst);
         block.size = static_cast<uint64_t>(cur_len);
 
-        if (int ret = source->driver->get_block_dir()->del(dpp, y, &block, std::nullopt) < 0 && ret != -ENOENT) { 
+        if (int ret = source->driver->get_block_dir()->del(dpp, y, &block, std::nullopt) < 0 && ret != -ENOENT) { // TODO: Add separate transaction here
           ldpp_dout(dpp, 0) << "D4NFilterObject::" << __func__ << "(): Failed to delete data block, ret=" << ret << dendl;
         }
 
